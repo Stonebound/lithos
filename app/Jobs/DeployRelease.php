@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\Release;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -31,7 +32,7 @@ class DeployRelease implements ShouldQueue
         }
 
         try {
-            \App\Filament\Resources\Releases\ReleaseResource::deployRelease($release, true);
+            ReleaseResource::deployRelease($release, true);
 
             if ($this->userId) {
                 $recipient = User::find($this->userId);

@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
@@ -108,7 +107,7 @@ class OverrideApplier
 
                 if ($fromUpload !== '') {
                     if (! $disk->copy($fromUpload, $target)) {
-                        $disk->put($target, $disk->get($fromUpload));
+                        copy($disk->path($fromUpload), $disk->path($target));
                     }
 
                     continue;
@@ -116,12 +115,7 @@ class OverrideApplier
 
                 if ($fromUrl !== '') {
                     try {
-                        /** @var Response $resp */
-                        $resp = Http::timeout(30)->get($fromUrl);
-                        if ($resp->successful()) {
-                            $bin = $resp->body();
-                            $disk->put($target, $bin);
-                        }
+                        Http::timeout(300)->sink($disk->path($target))->get($fromUrl);
                     } catch (\Throwable $e) {
                         // ignore fetch errors
                     }
@@ -213,7 +207,7 @@ class OverrideApplier
                         if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
                             $disk->makeDirectory($targetParent);
                         }
-                        $disk->put($target, $disk->get($remoteFile));
+                        copy($disk->path($remoteFile), $disk->path($target));
                         break 2;
                     }
                 }
@@ -235,7 +229,7 @@ class OverrideApplier
                 $disk->makeDirectory($targetParent);
             }
 
-            $disk->put($targetFile, $disk->get($sourceFile));
+            copy($disk->path($sourceFile), $disk->path($targetFile));
         }
     }
 

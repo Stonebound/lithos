@@ -188,7 +188,13 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('is_dir')->with('remote/path/config/test.txt')->andReturn(false);
         $sftp->shouldReceive('is_file')->with('remote/path/config/test.txt')->andReturn(true);
 
-        $sftp->shouldReceive('get')->with('remote/path/config/test.txt')->andReturn('content');
+        $sftp->shouldReceive('get')
+            ->with('remote/path/config/test.txt', Mockery::type('string'))
+            ->andReturnUsing(function ($remote, $local) {
+                file_put_contents($local, 'content');
+
+                return true;
+            });
 
         $service = new SftpService;
         $service->downloadDirectory($sftp, 'remote/path', 'local/path', ['config']);
@@ -224,7 +230,13 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('is_dir')->with('remote/path/mods/test.jar')->andReturn(false);
         $sftp->shouldReceive('is_file')->with('remote/path/mods/test.jar')->andReturn(true);
 
-        $sftp->shouldReceive('get')->with('remote/path/mods/test.jar')->andReturn('jar content');
+        $sftp->shouldReceive('get')
+            ->with('remote/path/mods/test.jar', Mockery::type('string'))
+            ->andReturnUsing(function ($remote, $local) {
+                file_put_contents($local, 'jar content');
+
+                return true;
+            });
 
         $service = new SftpService;
         // No includeTopDirs passed, should use defaults which include 'mods'

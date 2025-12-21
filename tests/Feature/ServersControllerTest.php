@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Server;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ServersControllerTest extends TestCase
@@ -42,7 +43,7 @@ class ServersControllerTest extends TestCase
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
-        \Livewire\Livewire::test(\App\Filament\Resources\Servers\Pages\CreateServer::class)
+        Livewire::test(\App\Filament\Resources\Servers\Pages\CreateServer::class)
             ->set('data.name', 'TestSrv')
             ->set('data.host', 'host.local')
             ->set('data.port', 22)

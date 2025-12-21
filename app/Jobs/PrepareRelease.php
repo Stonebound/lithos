@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\Release;
 use App\Models\User;
 use Filament\Notifications\Notification;
@@ -17,9 +18,9 @@ class PrepareRelease implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected int $timeout = 3600;
+    public int $timeout = 3600;
 
-    protected int $tries = 1;
+    public int $tries = 1;
 
     protected int $maxExceptions = 1;
 
@@ -31,6 +32,8 @@ class PrepareRelease implements ShouldQueue
 
     public function handle(): void
     {
+        ini_set('memory_limit', '512M');
+
         /** @var Release|null $release */
         $release = Release::query()->with('server')->find($this->releaseId);
         if (! $release) {
@@ -38,7 +41,7 @@ class PrepareRelease implements ShouldQueue
         }
 
         try {
-            \App\Filament\Resources\Releases\ReleaseResource::prepareRelease($release, $this->providerVersionId);
+            ReleaseResource::prepareRelease($release, $this->providerVersionId);
 
             if ($this->userId) {
                 $recipient = User::find($this->userId);

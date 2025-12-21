@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Releases\Tables;
 
 use App\Enums\ReleaseStatus;
+use App\Jobs\DeployRelease;
+use App\Jobs\PrepareRelease;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -49,7 +51,7 @@ class ReleasesTable
                     ->action(function ($record): void {
                         $providerVersionId = $record->provider_version_id ?? null;
 
-                        \App\Jobs\PrepareRelease::dispatch(
+                        PrepareRelease::dispatch(
                             $record->id,
                             $providerVersionId ? (string) $providerVersionId : null,
                             Auth::id()
@@ -67,7 +69,7 @@ class ReleasesTable
                     ->visible(fn ($record): bool => $record->status === ReleaseStatus::Prepared)
                     ->requiresConfirmation()
                     ->action(function ($record): void {
-                        \App\Jobs\DeployRelease::dispatch($record->id, Auth::id());
+                        DeployRelease::dispatch($record->id, Auth::id());
 
                         Notification::make()
                             ->title('Deployment queued')

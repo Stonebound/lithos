@@ -11,6 +11,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use phpseclib3\Net\SFTP;
 use Tests\TestCase;
 
@@ -90,7 +91,7 @@ class ReleaseFlowTest extends TestCase
         $uploaded = UploadedFile::fake()->createWithContent('modpack.zip', $zipBytes);
 
         Filament::setCurrentPanel('admin');
-        \Livewire\Livewire::test(\App\Filament\Resources\Releases\Pages\CreateRelease::class)
+        Livewire::test(\App\Filament\Resources\Releases\Pages\CreateRelease::class)
             ->fillForm([
                 'server_id' => $server->id,
                 'version_label' => '1.0.0',
@@ -101,11 +102,11 @@ class ReleaseFlowTest extends TestCase
 
         // Prepare and deploy via Filament actions on the edit page
         $release = \App\Models\Release::query()->latest()->first();
-        \Livewire\Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
+        Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
             ->callAction('prepare')
             ->assertHasNoActionErrors();
 
-        \Livewire\Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
+        Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
             ->callAction('deploy')
             ->assertHasNoActionErrors();
     }

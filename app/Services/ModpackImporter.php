@@ -45,7 +45,7 @@ class ModpackImporter
                 $disk->makeDirectory($targetParent);
             }
 
-            $disk->put($targetFile, $disk->get($sourceFile));
+            copy($disk->path($sourceFile), $disk->path($targetFile));
         }
     }
 

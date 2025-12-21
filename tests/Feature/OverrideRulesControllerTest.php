@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class OverrideRulesControllerTest extends TestCase
@@ -26,7 +27,7 @@ class OverrideRulesControllerTest extends TestCase
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
-        \Livewire\Livewire::test(\App\Filament\Resources\OverrideRules\Pages\CreateOverrideRule::class)
+        Livewire::test(\App\Filament\Resources\OverrideRules\Pages\CreateOverrideRule::class)
             ->set('data.name', 'EnableFeature')
             ->set('data.description', 'Turn on feature')
             ->set('data.scope', 'global')

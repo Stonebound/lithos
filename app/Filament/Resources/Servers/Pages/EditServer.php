@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Servers\Pages;
 
 use App\Filament\Resources\Servers\ServerResource;
+use App\Jobs\SnapshotServer;
 use App\Models\Server;
 use App\Services\SftpService;
 use Filament\Actions\Action;
@@ -49,7 +50,7 @@ class EditServer extends EditRecord
                     /** @var Server $server */
                     $server = $this->record;
                     $userId = Auth::id();
-                    \App\Jobs\SnapshotServer::dispatch($server->id, $userId);
+                    SnapshotServer::dispatch($server->id, $userId);
                     Notification::make()
                         ->title('Snapshot queued')
                         ->body('The remote snapshot will run in the background.')

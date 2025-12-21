@@ -88,24 +88,38 @@ class DiffService
             return false;
         }
 
-        $hashA = hash('sha256', $disk->get($pathA));
-        $hashB = hash('sha256', $disk->get($pathB));
+        $hashA = hash_file('sha256', $disk->path($pathA));
+        $hashB = hash_file('sha256', $disk->path($pathB));
 
         return $hashA === $hashB;
     }
 
     protected function buildChange(Release $release, string $relative, FileChangeType $type, ?string $oldPath, ?string $newPath): FileChange
     {
+        $disk = Storage::disk('local');
         $isBinary = $this->isBinary($oldPath ?? $newPath ?? '') || $this->hasBinaryExtension($relative);
         $diffSummary = null;
-        $disk = Storage::disk('local');
+
         $sizeOld = $oldPath && $disk->exists($oldPath) ? $disk->size($oldPath) : null;
         $sizeNew = $newPath && $disk->exists($newPath) ? $disk->size($newPath) : null;
-        $checksumOld = $oldPath && $disk->exists($oldPath) ? hash('sha256', $disk->get($oldPath)) : null;
-        $checksumNew = $newPath && $disk->exists($newPath) ? hash('sha256', $disk->get($newPath)) : null;
+
+        $checksumOld = null;
+        if ($oldPath && $disk->exists($oldPath)) {
+            $checksumOld = hash_file('sha256', $disk->path($oldPath));
+        }
+
+        $checksumNew = null;
+        if ($newPath && $disk->exists($newPath)) {
+            $checksumNew = hash_file('sha256', $disk->path($newPath));
+        }
 
         if ($type === FileChangeType::Modified && ! $isBinary && $oldPath && $newPath) {
-            $diffSummary = $this->generateDiffSummary($oldPath, $newPath);
+            // Only generate diff for files under 1MB to avoid OOM
+            if (($sizeOld ?? 0) < 1024 * 1024 && ($sizeNew ?? 0) < 1024 * 1024) {
+                $diffSummary = $this->generateDiffSummary($oldPath, $newPath);
+            } else {
+                $diffSummary = 'File too large for diff summary.';
+            }
         }
 
         return new FileChange([
@@ -126,11 +140,19 @@ class DiffService
         if ($path === '' || ! Storage::disk('local')->exists($path)) {
             return false;
         }
-        $contents = Storage::disk('local')->get($path);
-        if ($contents === null) {
+
+        $fullPath = Storage::disk('local')->path($path);
+        $handle = fopen($fullPath, 'rb');
+        if (! $handle) {
+            return false;
+        }
+
+        $contents = fread($handle, 1024);
+        fclose($handle);
+
+        if ($contents === false) {
             return true;
         }
-        $contents = substr($contents, 0, 1024);
 
         // Heuristic: if there are null bytes, treat as binary
         return strpos($contents, "\0") !== false;

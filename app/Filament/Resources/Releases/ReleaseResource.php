@@ -11,6 +11,7 @@ use App\Filament\Resources\Releases\Pages\EditRelease;
 use App\Filament\Resources\Releases\Pages\ListReleases;
 use App\Filament\Resources\Releases\Schemas\ReleaseForm;
 use App\Filament\Resources\Releases\Tables\ReleasesTable;
+use App\Jobs\DeleteRemovedFiles;
 use App\Models\FileChange;
 use App\Models\Release;
 use App\Models\Server;
@@ -94,9 +95,12 @@ class ReleaseResource extends Resource
         $remoteDir = 'modpacks/'.$release->id.'/remote';
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
+
         $sftp = $sftpSvc->connect($release->server);
+
         $include = $release->server->include_paths ?? [];
         $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
         $release->remote_snapshot_path = $remoteDir;
 
@@ -142,7 +146,7 @@ class ReleaseResource extends Resource
         $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
         $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns);
 
-        \App\Jobs\DeleteRemovedFiles::dispatchSync($release->id);
+        DeleteRemovedFiles::dispatchSync($release->id);
 
         $release->status = ReleaseStatus::Deployed;
         $release->save();

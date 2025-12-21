@@ -42,6 +42,9 @@ class SftpService
             $includeTopDirs = ['config', 'mods', 'kubejs', 'defaultconfigs', 'resourcepacks'];
         }
 
+        $disk = Storage::disk('local');
+        $diskRoot = $disk->path('');
+
         foreach ($items as $name => $meta) {
             if ($name === '.' || $name === '..') {
                 continue;
@@ -53,26 +56,31 @@ class SftpService
                 continue;
             }
 
-            if ($sftp->is_link($remoteItem)) {
-                continue; // Skip symlinks
+            // Use metadata from rawlist to avoid extra network calls
+            $type = $meta['type'] ?? null;
+            if ($type === 3) { // NET_SFTP_TYPE_SYMLINK
+                continue;
             }
 
             if ($depth === 0 && ! empty($includeTopDirs) && ! in_array($name, $includeTopDirs, true)) {
                 continue;
             }
 
-            $isDir = $sftp->is_dir($remoteItem);
-            $isFile = $sftp->is_file($remoteItem);
-
-            if ($isDir) {
+            if ($type === 2) { // NET_SFTP_TYPE_DIRECTORY
                 $this->downloadDirectory($sftp, $remoteItem, $localPath.'/'.$name, $includeTopDirs, $depth + 1, $skipPatterns, $currentRelative);
-            } elseif ($isFile) {
-                $content = $sftp->get($remoteItem);
-                if ($content === false) {
+            } elseif ($type === 1) { // NET_SFTP_TYPE_REGULAR
+                $localFile = $localPath.'/'.$name;
+                $localDir = dirname($localFile);
+                $fullLocalDir = $diskRoot.'/'.ltrim($localDir, '/');
+
+                if (! is_dir($fullLocalDir)) {
+                    $disk->makeDirectory($localDir);
+                }
+
+                $fullLocalFile = $diskRoot.'/'.ltrim($localFile, '/');
+                if (! $sftp->get($remoteItem, $fullLocalFile)) {
                     throw new \RuntimeException('Failed to download file: '.$remoteItem);
                 }
-                // Write using Storage when localPath is under storage/app
-                Storage::disk('local')->put($localPath.'/'.$name, $content);
             }
         }
     }
@@ -96,8 +104,7 @@ class SftpService
                 $sftp->mkdir($remoteDir, -1, true);
             }
 
-            $content = $disk->get($file);
-            if (! $sftp->put($remoteFile, $content)) {
+            if (! $sftp->put($remoteFile, $disk->path($file), \phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE)) {
                 throw new \RuntimeException('Failed to upload: '.$remoteFile);
             }
         }
