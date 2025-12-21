@@ -17,7 +17,7 @@ return new class extends Migration
             $table->enum('scope', ['global', 'server'])->default('global');
             $table->foreignId('server_id')->nullable()->constrained('servers')->cascadeOnDelete();
             $table->string('path_pattern');
-            $table->enum('type', ['text_replace', 'json_patch', 'yaml_patch']);
+            $table->enum('type', ['text_replace', 'json_patch', 'yaml_patch', 'file_add', 'file_remove']);
             $table->json('payload');
             $table->boolean('enabled')->default(true);
             $table->integer('priority')->default(0);

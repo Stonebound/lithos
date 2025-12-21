@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases;
 
+use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\Pages\CreateRelease;
 use App\Filament\Resources\Releases\Pages\EditRelease;
 use App\Filament\Resources\Releases\Pages\ListReleases;
@@ -90,18 +91,16 @@ class ReleaseResource extends Resource
         $release->extracted_path = $newDir;
 
         // Snapshot remote
-        $remoteDir = storage_path('app/modpacks/'.$release->id.'/remote');
+        $remoteDir = 'modpacks/'.$release->id.'/remote';
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
-        $include = is_array($release->server->include_paths)
-            ? $release->server->include_paths
-            : array_values(array_filter(array_map(fn ($l) => trim($l), preg_split('/\r\n|\r|\n/', (string) ($release->server->include_paths ?? '')))));
+        $include = $release->server->include_paths ?? [];
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include);
         $release->remote_snapshot_path = $remoteDir;
 
         // Apply overrides
-        $preparedDir = storage_path('app/modpacks/'.$release->id.'/prepared');
+        $preparedDir = 'modpacks/'.$release->id.'/prepared';
         /** @var OverrideApplier $applier */
         $applier = app(OverrideApplier::class);
         $applier->apply($release, $newDir, $preparedDir);
@@ -118,7 +117,7 @@ class ReleaseResource extends Resource
             $change->save();
         }
 
-        $release->status = 'prepared';
+        $release->status = ReleaseStatus::Prepared;
         $release->summary_json = [
             'added' => count(array_filter($changes, fn ($c) => $c->change_type === 'added')),
             'modified' => count(array_filter($changes, fn ($c) => $c->change_type === 'modified')),
@@ -152,7 +151,7 @@ class ReleaseResource extends Resource
             \App\Jobs\DeleteRemovedFiles::dispatch($release->id, Auth::id());
         }
 
-        $release->status = 'deployed';
+        $release->status = ReleaseStatus::Deployed;
         $release->save();
 
         Notification::make()

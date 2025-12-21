@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\Pages\EditRelease;
 use App\Models\Release;
 use App\Models\Server;
@@ -39,11 +40,10 @@ class ReleasesActionsTest extends TestCase
         $this->actingAs($user);
 
         // Create a server and a fake remote root
-        $remoteRoot = storage_path('app/test-remote');
-        if (! is_dir($remoteRoot)) {
-            mkdir($remoteRoot, 0777, true);
-        }
-        file_put_contents($remoteRoot.'/foo.txt', "remote\n");
+        $remoteRel = 'test-remote';
+        $remoteRoot = Storage::disk('local')->path($remoteRel);
+        Storage::disk('local')->makeDirectory($remoteRel);
+        Storage::disk('local')->put($remoteRel.'/foo.txt', "remote\n");
 
         /** @var Server $server */
         $server = Server::query()->create([
@@ -61,18 +61,17 @@ class ReleasesActionsTest extends TestCase
         ]);
 
         // Fake provider resolver to return a simple provider
-        $sourceDir = storage_path('app/test-source');
-        if (! is_dir($sourceDir)) {
-            mkdir($sourceDir, 0777, true);
-        }
-        file_put_contents($sourceDir.'/foo.txt', "prepared\n");
-        file_put_contents($sourceDir.'/bar.txt', "new\n");
+        $sourceRel = 'test-source';
+        $sourceDir = Storage::disk('local')->path($sourceRel);
+        Storage::disk('local')->makeDirectory($sourceRel);
+        Storage::disk('local')->put($sourceRel.'/foo.txt', "prepared\n");
+        Storage::disk('local')->put($sourceRel.'/bar.txt', "new\n");
 
         // Create a release
         /** @var Release $release */
         $release = Release::query()->create([
             'server_id' => $server->id,
-            'status' => 'draft',
+            'status' => ReleaseStatus::Draft,
             // Provide initial source to satisfy NOT NULL constraints; will be replaced by provider.
             'source_type' => 'dir',
             'source_path' => $sourceDir,
@@ -89,7 +88,7 @@ class ReleasesActionsTest extends TestCase
 
             public function fetchSource($providerPackId, $versionId): array
             {
-                return ['type' => 'directory', 'path' => storage_path('app/test-source')];
+                return ['type' => 'directory', 'path' => \Illuminate\Support\Facades\Storage::disk('local')->path('test-source')];
             }
         };
 
@@ -114,26 +113,18 @@ class ReleasesActionsTest extends TestCase
 
             public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
             {
-                if (! is_dir($localPath)) {
-                    mkdir($localPath, 0777, true);
-                }
-                $iterator = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator($remotePath, \FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($iterator as $file) {
-                    /** @var \SplFileInfo $file */
-                    $relative = str_replace($remotePath.'/', '', $file->getPathname());
-                    $target = $localPath.'/'.$relative;
-                    if ($file->isDir()) {
-                        if (! is_dir($target)) {
-                            mkdir($target, 0777, true);
-                        }
-                    } else {
-                        if (! is_dir(dirname($target))) {
-                            mkdir(dirname($target), 0777, true);
-                        }
-                        copy($file->getPathname(), $target);
+                $root = Storage::disk('local')->path('');
+                $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
+                $localRel = ltrim(str_replace($root, '', $localPath), '/');
+                Storage::disk('local')->makeDirectory($localRel);
+                foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
+                    $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
+                    $targetRel = $localRel.'/'.($relative ?: basename($file));
+                    $dir = dirname($targetRel);
+                    if ($dir !== '.' && ! Storage::disk('local')->exists($dir)) {
+                        Storage::disk('local')->makeDirectory($dir);
                     }
+                    Storage::disk('local')->put($targetRel, Storage::disk('local')->get($file));
                 }
             }
 
@@ -155,9 +146,9 @@ class ReleasesActionsTest extends TestCase
 
         // Assert release state updated
         $release = $release->refresh();
-        $this->assertSame('deployed', $release->status);
+        $this->assertSame(ReleaseStatus::Deployed, $release->status);
         $this->assertNotEmpty($release->prepared_path);
-        $this->assertDirectoryExists($release->prepared_path);
+        $this->assertTrue(Storage::disk('local')->exists($release->prepared_path));
 
         // One file modified, one new
         $this->assertDatabaseHas('file_changes', [

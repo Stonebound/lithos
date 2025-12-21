@@ -7,7 +7,6 @@ namespace App\Filament\Resources\Releases\Pages;
 use App\Filament\Resources\Releases\ReleaseResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -36,12 +35,8 @@ class EditRelease extends EditRecord
                     return $u ? in_array($u->role ?? 'viewer', ['maintainer', 'admin'], true) : false;
                 })())
                 ->disabled(fn (): bool => empty($this->record->prepared_path))
-                ->form([
-                    Toggle::make('delete_removed')->label('Delete removed files')->default(false),
-                ])
-                ->action(function (array $data): void {
-                    $deleteRemoved = (bool) ($data['delete_removed'] ?? false);
-                    ReleaseResource::deployRelease($this->record, $deleteRemoved);
+                ->action(function (): void {
+                    ReleaseResource::deployRelease($this->record, true);
                 }),
             DeleteAction::make(),
         ];

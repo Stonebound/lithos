@@ -59,21 +59,16 @@ class FtbProvider implements ProviderInterface
         );
 
         $installerContents = $this->get($linuxUrl);
-        $absUploads = storage_path('app/private/uploads');
-        if (! is_dir($absUploads)) {
-            @mkdir($absUploads, 0777, true);
-        }
-        Storage::makeDirectory('uploads');
+        $absUploads = storage_path('uploads');
+        Storage::disk('local')->makeDirectory('uploads');
         // Name must include pack and version to drive installer behavior.
         $relativePath = 'uploads/'.sprintf('serverinstall_%s_%s', $providerPackId, $versionId);
-        Storage::put($relativePath, $installerContents);
-        $installerPath = Storage::path($relativePath);
+        Storage::disk('local')->put($relativePath, $installerContents);
+        $installerPath = Storage::disk('local')->path($relativePath);
 
         // Prepare target directory
-        $targetDir = storage_path('app/tmp/ftb/'.uniqid('ftb_', true));
-        if (! is_dir($targetDir)) {
-            mkdir($targetDir, 0777, true);
-        }
+        $targetDir = 'tmp/ftb/'.uniqid('ftb_', true);
+        Storage::disk('local')->makeDirectory($targetDir);
 
         // Determine how to run installer and pass non-interactive flags (installer is a binary, not a JAR)
         $packId = (int) $providerPackId;

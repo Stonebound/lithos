@@ -20,7 +20,7 @@ class ReleaseFlowTest extends TestCase
 
     protected function makeZipWithFiles(array $files): string
     {
-        $path = storage_path('app/test-'.uniqid().'.zip');
+        $path = Storage::disk('local')->path('test-'.uniqid().'.zip');
         $zip = new \ZipArchive;
         $zip->open($path, \ZipArchive::CREATE);
         foreach ($files as $name => $content) {
@@ -44,6 +44,7 @@ class ReleaseFlowTest extends TestCase
             'auth_type' => 'password',
             'password' => 'pw',
             'remote_root_path' => '/srv/mc',
+            'include_paths' => [],
         ]);
 
         // Fake SFTP service
@@ -56,20 +57,17 @@ class ReleaseFlowTest extends TestCase
 
             public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
             {
-                // Create a remote snapshot with one file
-                if (! is_dir($localPath)) {
-                    mkdir($localPath, 0777, true);
-                }
-                if (! is_dir($localPath.'/config')) {
-                    mkdir($localPath.'/config', 0777, true);
-                }
-                file_put_contents($localPath.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
+                // Create a remote snapshot with one file using Storage
+                $root = Storage::disk('local')->path('');
+                $localRel = ltrim(str_replace($root, '', $localPath), '/');
+                Storage::disk('local')->makeDirectory($localRel.'/config');
+                Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
             }
 
             public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = []): void
             {
                 // Assert prepared files exist
-                if (! is_dir($localPath)) {
+                if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {
                     throw new \RuntimeException('Prepared path missing');
                 }
             }
@@ -84,7 +82,11 @@ class ReleaseFlowTest extends TestCase
 
         // Create release via Filament and upload zip
         Storage::fake('local');
-        $uploaded = UploadedFile::fake()->create('modpack.zip', 10, 'application/zip');
+        $zipBytes = file_get_contents($zipPath);
+        if ($zipBytes === false) {
+            $this->fail('Failed to read generated zip for upload');
+        }
+        $uploaded = UploadedFile::fake()->createWithContent('modpack.zip', $zipBytes);
 
         Filament::setCurrentPanel('admin');
         \Livewire\Livewire::test(\App\Filament\Resources\Releases\Pages\CreateRelease::class)

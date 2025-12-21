@@ -25,10 +25,8 @@ class CreateRelease extends CreateRecord
 
         // Ensure NOT NULL constraints are satisfied even when using provider (no immediate source).
         if (! isset($data['source_type']) || ! isset($data['source_path'])) {
-            $placeholderDir = storage_path('app/tmp/releases/'.uniqid('release_', true));
-            if (! is_dir($placeholderDir)) {
-                mkdir($placeholderDir, 0777, true);
-            }
+            $placeholderDir = 'tmp/releases/'.uniqid('release_', true);
+            Storage::disk('local')->makeDirectory($placeholderDir);
             $data['source_type'] = 'dir';
             $data['source_path'] = $placeholderDir;
         }

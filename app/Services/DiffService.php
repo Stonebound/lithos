@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\FileChange;
 use App\Models\Release;
+use Illuminate\Support\Facades\Storage;
 
 class DiffService
 {
@@ -40,17 +41,12 @@ class DiffService
 
     protected function mapFiles(string $dir): array
     {
+        $disk = Storage::disk('local');
+
         $result = [];
-        if (! is_dir($dir)) {
-            return $result;
-        }
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)
-        );
-        foreach ($iterator as $file) {
-            /** @var \SplFileInfo $file */
-            $relative = str_replace($dir.'/', '', $file->getPathname());
-            $result[$relative] = $file->getPathname();
+        foreach ($disk->allFiles($dir) as $path) {
+            $relative = ltrim(str_replace($dir.'/', '', $path), '/');
+            $result[$relative] = $path;
         }
 
         return $result;
@@ -58,21 +54,33 @@ class DiffService
 
     protected function sameFile(string $pathA, string $pathB): bool
     {
-        if (filesize($pathA) !== filesize($pathB)) {
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($pathA) || ! $disk->exists($pathB)) {
             return false;
         }
 
-        return hash_file('sha256', $pathA) === hash_file('sha256', $pathB);
+        $sizeA = $disk->size($pathA);
+        $sizeB = $disk->size($pathB);
+        if ($sizeA !== $sizeB) {
+            return false;
+        }
+
+        $hashA = hash('sha256', $disk->get($pathA));
+        $hashB = hash('sha256', $disk->get($pathB));
+
+        return $hashA === $hashB;
     }
 
     protected function buildChange(Release $release, string $relative, string $type, ?string $oldPath, ?string $newPath): FileChange
     {
         $isBinary = $this->isBinary($oldPath ?? $newPath ?? '') || $this->hasBinaryExtension($relative);
         $diffSummary = null;
-        $sizeOld = $oldPath ? filesize($oldPath) : null;
-        $sizeNew = $newPath ? filesize($newPath) : null;
-        $checksumOld = $oldPath ? hash_file('sha256', $oldPath) : null;
-        $checksumNew = $newPath ? hash_file('sha256', $newPath) : null;
+        $disk = Storage::disk('local');
+        $sizeOld = $oldPath && $disk->exists($oldPath) ? $disk->size($oldPath) : null;
+        $sizeNew = $newPath && $disk->exists($newPath) ? $disk->size($newPath) : null;
+        $checksumOld = $oldPath && $disk->exists($oldPath) ? hash('sha256', $disk->get($oldPath)) : null;
+        $checksumNew = $newPath && $disk->exists($newPath) ? hash('sha256', $disk->get($newPath)) : null;
 
         if ($type === 'modified' && ! $isBinary && $oldPath && $newPath) {
             $diffSummary = $this->generateDiffSummary($oldPath, $newPath);
@@ -93,13 +101,14 @@ class DiffService
 
     protected function isBinary(string $path): bool
     {
-        if ($path === '' || ! is_file($path)) {
+        if ($path === '' || ! Storage::disk('local')->exists($path)) {
             return false;
         }
-        $contents = file_get_contents($path, false, null, 0, 1024);
-        if ($contents === false) {
+        $contents = Storage::disk('local')->get($path);
+        if ($contents === null) {
             return true;
         }
+        $contents = substr($contents, 0, 1024);
 
         // Heuristic: if there are null bytes, treat as binary
         return strpos($contents, "\0") !== false;
@@ -114,8 +123,9 @@ class DiffService
 
     protected function generateDiffSummary(string $oldPath, string $newPath): string
     {
-        $a = @file($oldPath, FILE_IGNORE_NEW_LINES);
-        $b = @file($newPath, FILE_IGNORE_NEW_LINES);
+        $disk = Storage::disk('local');
+        $a = explode("\n", rtrim($disk->get($oldPath), "\n"));
+        $b = explode("\n", rtrim($disk->get($newPath), "\n"));
         $diff = [];
         $max = max(count($a ?? []), count($b ?? []));
         for ($i = 0; $i < $max; $i++) {

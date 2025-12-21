@@ -6,6 +6,9 @@ namespace App\Services;
 
 use App\Models\OverrideRule;
 use App\Models\Release;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
 
 class OverrideApplier
@@ -35,22 +38,84 @@ class OverrideApplier
 
     protected function applyRule(OverrideRule $rule, string $root): void
     {
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
-        );
+        if ($rule->type === 'file_add') {
+            $payload = $rule->payload ?? [];
+            $to = (string) ($payload['to'] ?? '');
+            $fromUpload = (string) ($payload['from_upload'] ?? '');
+            $fromUrl = (string) ($payload['from_url'] ?? '');
+            $overwrite = (bool) ($payload['overwrite'] ?? true);
+            if ($to === '') {
+                return;
+            }
+            $disk = Storage::disk('local');
+            $target = trim($root.'/'.$to, '/');
+            $targetParent = dirname($target);
+            if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
+                $disk->makeDirectory($targetParent);
+            }
+
+            if (! $overwrite && $disk->exists($target)) {
+                return;
+            }
+            if ($fromUpload !== '') {
+                if (! $disk->copy($fromUpload, $target)) {
+                    $disk->put($target, $disk->get($fromUpload));
+                }
+
+                return;
+            }
+            if ($fromUrl !== '') {
+                try {
+                    /** @var Response $resp */
+                    $resp = Http::timeout(30)->get($fromUrl);
+                    if ($resp->successful()) {
+                        $bin = $resp->body();
+                        $disk->put($target, $bin);
+                    }
+                } catch (\Throwable $e) {
+                    // ignore fetch errors
+                }
+
+                return;
+            }
+
+            return;
+        }
+
+        $disk = Storage::disk('local');
+        $iterator = $disk->allFiles($root);
         foreach ($iterator as $file) {
-            /** @var \SplFileInfo $file */
-            $relative = str_replace($root.'/', '', $file->getPathname());
+            $relative = ltrim(str_replace($root.'/', '', $file), '/');
             if (! fnmatch($rule->path_pattern, $relative)) {
                 continue;
             }
             if ($rule->type === 'text_replace') {
-                $this->applyTextReplace($file->getPathname(), $rule->payload);
+                $this->applyTextReplace($file, $rule->payload);
             } elseif ($rule->type === 'json_patch') {
-                $this->applyJsonPatch($file->getPathname(), $rule->payload);
+                $this->applyJsonPatch($file, $rule->payload);
             } elseif ($rule->type === 'yaml_patch') {
-                $this->applyYamlPatch($file->getPathname(), $rule->payload);
+                $this->applyYamlPatch($file, $rule->payload);
+            } elseif ($rule->type === 'file_remove') {
+                $disk->delete($file);
             }
+        }
+    }
+
+    private function copyDirectory(string $sourceDir, string $targetDir): void
+    {
+        $disk = Storage::disk('local');
+
+        $disk->makeDirectory($targetDir);
+
+        foreach ($disk->allFiles($sourceDir) as $sourceFile) {
+            $relative = ltrim(str_replace($sourceDir.'/', '', $sourceFile), '/');
+            $targetFile = $targetDir.'/'.$relative;
+            $targetParent = dirname($targetFile);
+            if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
+                $disk->makeDirectory($targetParent);
+            }
+
+            $disk->put($targetFile, $disk->get($sourceFile));
         }
     }
 
@@ -59,8 +124,8 @@ class OverrideApplier
         $search = $payload['search'] ?? '';
         $replace = $payload['replace'] ?? '';
         $regex = (bool) ($payload['regex'] ?? false);
-        $content = file_get_contents($path);
-        if ($content === false) {
+        $content = Storage::disk('local')->get($path);
+        if ($content === false || $content === null) {
             return;
         }
         if ($regex) {
@@ -68,13 +133,13 @@ class OverrideApplier
         } else {
             $content = str_replace($search, $replace, $content);
         }
-        file_put_contents($path, $content);
+        Storage::disk('local')->put($path, $content);
     }
 
     protected function applyJsonPatch(string $path, array $payload): void
     {
-        $content = file_get_contents($path);
-        if ($content === false) {
+        $content = Storage::disk('local')->get($path);
+        if ($content === false || $content === null) {
             return;
         }
         $data = json_decode($content, true);
@@ -83,13 +148,14 @@ class OverrideApplier
         }
         $merge = $payload['merge'] ?? [];
         $data = $this->recursiveMerge($data, $merge);
-        file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $out = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        Storage::disk('local')->put($path, $out);
     }
 
     protected function applyYamlPatch(string $path, array $payload): void
     {
-        $content = file_get_contents($path);
-        if ($content === false) {
+        $content = Storage::disk('local')->get($path);
+        if ($content === false || $content === null) {
             return;
         }
         $data = Yaml::parse($content);
@@ -98,7 +164,8 @@ class OverrideApplier
         }
         $merge = $payload['merge'] ?? [];
         $data = $this->recursiveMerge($data, $merge);
-        file_put_contents($path, Yaml::dump($data, 4));
+        $out = Yaml::dump($data, 4);
+        Storage::disk('local')->put($path, $out);
     }
 
     protected function recursiveMerge(array $base, array $merge): array
@@ -112,26 +179,5 @@ class OverrideApplier
         }
 
         return $base;
-    }
-
-    protected function copyDirectory(string $source, string $dest): void
-    {
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-        foreach ($iterator as $item) {
-            $target = $dest.'/'.str_replace($source.'/', '', $item->getPathname());
-            if ($item->isDir()) {
-                if (! is_dir($target)) {
-                    mkdir($target, 0777, true);
-                }
-            } else {
-                if (! is_dir(dirname($target))) {
-                    mkdir(dirname($target), 0777, true);
-                }
-                copy($item->getPathname(), $target);
-            }
-        }
     }
 }

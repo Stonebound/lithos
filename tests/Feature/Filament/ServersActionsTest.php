@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\SftpService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -25,11 +26,10 @@ class ServersActionsTest extends TestCase
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
-        $remoteRoot = storage_path('app/test-server-remote');
-        if (! is_dir($remoteRoot)) {
-            mkdir($remoteRoot, 0777, true);
-        }
-        file_put_contents($remoteRoot.'/hello.txt', "hello\n");
+        $remoteRel = 'test-server-remote';
+        $remoteRoot = Storage::disk('local')->path($remoteRel);
+        Storage::disk('local')->makeDirectory($remoteRel);
+        Storage::disk('local')->put($remoteRel.'/hello.txt', "hello\n");
 
         /** @var Server $server */
         $server = Server::query()->create([
@@ -52,26 +52,18 @@ class ServersActionsTest extends TestCase
 
             public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
             {
-                if (! is_dir($localPath)) {
-                    mkdir($localPath, 0777, true);
-                }
-                $iterator = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator($remotePath, \FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($iterator as $file) {
-                    /** @var \SplFileInfo $file */
-                    $relative = str_replace($remotePath.'/', '', $file->getPathname());
-                    $target = $localPath.'/'.$relative;
-                    if ($file->isDir()) {
-                        if (! is_dir($target)) {
-                            mkdir($target, 0777, true);
-                        }
-                    } else {
-                        if (! is_dir(dirname($target))) {
-                            mkdir(dirname($target), 0777, true);
-                        }
-                        copy($file->getPathname(), $target);
+                $root = Storage::disk('local')->path('');
+                $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
+                $localRel = ltrim(str_replace($root, '', $localPath), '/');
+                Storage::disk('local')->makeDirectory($localRel);
+                foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
+                    $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
+                    $targetRel = $localRel.'/'.($relative ?: basename($file));
+                    $dir = dirname($targetRel);
+                    if ($dir !== '.' && ! Storage::disk('local')->exists($dir)) {
+                        Storage::disk('local')->makeDirectory($dir);
                     }
+                    Storage::disk('local')->put($targetRel, Storage::disk('local')->get($file));
                 }
             }
         };
@@ -84,8 +76,6 @@ class ServersActionsTest extends TestCase
             ->callAction('snapshot')
             ->assertHasNoActionErrors();
 
-        $target = storage_path('app/servers/'.$server->id.'/snapshot');
-        $this->assertDirectoryExists($target);
-        $this->assertFileExists($target.'/hello.txt');
+        $this->assertTrue(Storage::disk('local')->exists('servers/'.$server->id.'/snapshot/hello.txt'));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases\Tables;
 
+use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\Release;
 use Filament\Actions\Action;
@@ -36,6 +37,9 @@ class ReleasesTable
                 TextColumn::make('prepared_path')
                     ->searchable(),
                 TextColumn::make('status')
+                    ->formatStateUsing(function ($state): string {
+                        return $state instanceof ReleaseStatus ? $state->value : (string) $state;
+                    })
                     ->searchable(),
                 TextColumn::make('created_at')
                     ->dateTime()

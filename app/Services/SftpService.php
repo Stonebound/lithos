@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Server;
+use Illuminate\Support\Facades\Storage;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Net\SFTP;
 
@@ -19,7 +20,9 @@ class SftpService
                 throw new \RuntimeException('SFTP password login failed');
             }
         } else {
-            $key = PublicKeyLoader::load(file_get_contents($server->private_key_path));
+            $keyContents = null;
+            $keyContents = Storage::disk('local')->get($server->private_key_path);
+            $key = PublicKeyLoader::load($keyContents);
             if (! $sftp->login($server->username, $key)) {
                 throw new \RuntimeException('SFTP key login failed');
             }
@@ -30,7 +33,6 @@ class SftpService
 
     public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
     {
-        $this->ensureLocalDir($localPath);
         $items = $sftp->rawlist($remotePath, true);
         if (! is_array($items)) {
             throw new \RuntimeException('Failed to list remote path: '.$remotePath);
@@ -59,29 +61,28 @@ class SftpService
             if ($isDir) {
                 $this->downloadDirectory($sftp, $remoteItem, $localPath.'/'.$relative, $includeTopDirs, $depth + 1);
             } else {
-                $this->ensureLocalDir(dirname($localPath.'/'.$relative));
                 $content = $sftp->get($remoteItem);
                 if ($content === false) {
                     throw new \RuntimeException('Failed to download file: '.$remoteItem);
                 }
-                file_put_contents($localPath.'/'.$relative, $content);
+                // Write using Storage when localPath is under storage/app
+                Storage::disk('local')->put($localPath.'/'.$relative, $content);
             }
         }
     }
 
     public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = []): void
     {
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($localPath, \FilesystemIterator::SKIP_DOTS)
-        );
+        $disk = Storage::disk('local');
+        $localRoot = rtrim($disk->path(''), '/');
+        $localRel = $this->normalizeLocalPath($localPath, $localRoot);
 
         if (empty($includeTopDirs)) {
             $includeTopDirs = ['config', 'mods', 'kubejs', 'defaultconfigs', 'resourcepacks'];
         }
 
-        foreach ($iterator as $fileInfo) {
-            /** @var \SplFileInfo $fileInfo */
-            $relative = str_replace($localPath.'/', '', $fileInfo->getPathname());
+        foreach ($disk->allFiles($localRel) as $file) {
+            $relative = ltrim(str_replace($localRel.'/', '', $file), '/');
             if (! empty($includeTopDirs)) {
                 $top = explode('/', $relative)[0];
                 if ($top !== '' && ! in_array($top, $includeTopDirs, true)) {
@@ -91,19 +92,21 @@ class SftpService
             $remoteFile = rtrim($remotePath, '/').'/'.$relative;
             $remoteDir = dirname($remoteFile);
             $sftp->mkdir($remoteDir, -1, true);
-            $content = file_get_contents($fileInfo->getPathname());
+
+            $content = $disk->get($file);
             if (! $sftp->put($remoteFile, $content)) {
                 throw new \RuntimeException('Failed to upload: '.$remoteFile);
             }
         }
 
         if ($deleteRemoved) {
-            $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $includeTopDirs);
+            $this->deleteRemovedFiles($sftp, $localRel, $remotePath, $includeTopDirs);
         }
     }
 
     protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = []): void
     {
+        $disk = Storage::disk('local');
         $remoteList = $sftp->rawlist($remotePath, true);
         if (! is_array($remoteList)) {
             return;
@@ -125,7 +128,7 @@ class SftpService
             $relative = $name;
             $localItem = $localPath.'/'.$relative;
 
-            if (! file_exists($localItem)) {
+            if (! $disk->exists($localItem)) {
                 if ($isDir) {
                     $sftp->rmdir($remoteItem);
                 } else {
@@ -142,9 +145,21 @@ class SftpService
 
     protected function ensureLocalDir(string $dir): void
     {
-        if (! is_dir($dir)) {
-            mkdir($dir, 0777, true);
+        if (! Storage::disk('local')->exists($dir)) {
+            // If under storage/app, use Storage to create directory
+            Storage::disk('local')->makeDirectory($dir);
         }
+    }
+
+    private function normalizeLocalPath(string $path, string $diskRoot): string
+    {
+        $normalized = str_replace('\\', '/', $path);
+
+        if (str_starts_with($normalized, $diskRoot.'/')) {
+            return ltrim(substr($normalized, strlen($diskRoot)), '/');
+        }
+
+        return ltrim($normalized, '/');
     }
 
     // Exclude logic removed in favor of include-only top-level directories.

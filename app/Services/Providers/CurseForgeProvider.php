@@ -91,13 +91,9 @@ class CurseForgeProvider implements ProviderInterface
         }
         $contents = (string) $download->body();
         $relativePath = 'uploads/'.uniqid('cf_', true).'.zip';
-        $absUploads = storage_path('app/private/uploads');
-        if (! is_dir($absUploads)) {
-            @mkdir($absUploads, 0777, true);
-        }
-        Storage::makeDirectory('uploads');
-        Storage::put($relativePath, $contents);
-        $path = Storage::path($relativePath);
+        Storage::disk('local')->makeDirectory('uploads');
+        Storage::disk('local')->put($relativePath, $contents);
+        $path = Storage::disk('local')->path($relativePath);
 
         return ['type' => 'zip', 'path' => $path];
     }

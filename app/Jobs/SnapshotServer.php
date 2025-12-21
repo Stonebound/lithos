@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 
 class SnapshotServer implements ShouldQueue
 {
@@ -30,10 +31,8 @@ class SnapshotServer implements ShouldQueue
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($server);
-        $target = storage_path('app/servers/'.$server->id.'/snapshot');
-        if (! is_dir($target)) {
-            mkdir($target, 0777, true);
-        }
+        $target = 'servers/'.$server->id.'/snapshot';
+        Storage::disk('local')->makeDirectory($target);
 
         $paths = $server->include_paths;
 
