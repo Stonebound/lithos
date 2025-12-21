@@ -88,7 +88,7 @@ class ReleasesActionsTest extends TestCase
 
             public function fetchSource($providerPackId, $versionId): array
             {
-                return ['type' => 'directory', 'path' => \Illuminate\Support\Facades\Storage::disk('local')->path('test-source')];
+                return ['type' => 'dir', 'path' => \Illuminate\Support\Facades\Storage::disk('local')->path('test-source')];
             }
         };
 
@@ -111,7 +111,7 @@ class ReleasesActionsTest extends TestCase
                 return new \phpseclib3\Net\SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
+            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
@@ -119,6 +119,19 @@ class ReleasesActionsTest extends TestCase
                 Storage::disk('local')->makeDirectory($localRel);
                 foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
                     $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
+
+                    // Simple skip check for test mock
+                    $skipped = false;
+                    foreach ($skipPatterns as $p) {
+                        if (fnmatch($p, $relative)) {
+                            $skipped = true;
+                            break;
+                        }
+                    }
+                    if ($skipped) {
+                        continue;
+                    }
+
                     $targetRel = $localRel.'/'.($relative ?: basename($file));
                     $dir = dirname($targetRel);
                     if ($dir !== '.' && ! Storage::disk('local')->exists($dir)) {
@@ -128,7 +141,7 @@ class ReleasesActionsTest extends TestCase
                 }
             }
 
-            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = []): void
+            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = [], array $skipPatterns = []): void
             {
                 // no-op for test
             }
@@ -140,8 +153,10 @@ class ReleasesActionsTest extends TestCase
         Livewire::test(EditRelease::class, ['record' => $release->getKey()])
             ->set('data.provider_version_id', 'v1')
             ->callAction('prepare')
-            ->assertHasNoActionErrors()
-            ->callAction('deploy', data: ['delete_removed' => true])
+            ->assertHasNoActionErrors();
+
+        Livewire::test(EditRelease::class, ['record' => $release->getKey()])
+            ->callAction('deploy')
             ->assertHasNoActionErrors();
 
         // Assert release state updated

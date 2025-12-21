@@ -70,7 +70,7 @@ class ReleaseFormDefaultsTest extends TestCase
 
             public function fetchSource($providerPackId, $versionId): array
             {
-                return ['type' => 'directory', 'path' => 'test-source'];
+                return ['type' => 'dir', 'path' => 'test-source'];
             }
         };
 

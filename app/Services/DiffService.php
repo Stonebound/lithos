@@ -15,10 +15,16 @@ class DiffService
         $oldFiles = $this->mapFiles($oldDir);
         $newFiles = $this->mapFiles($newDir);
 
+        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+
         $changes = [];
 
         // Added or Modified
         foreach ($newFiles as $relative => $newPath) {
+            if ($this->shouldSkip($relative, $skipPatterns)) {
+                continue;
+            }
+
             $oldPath = $oldFiles[$relative] ?? null;
             if (! $oldPath) {
                 $changes[] = $this->buildChange($release, $relative, 'added', null, $newPath);
@@ -31,12 +37,27 @@ class DiffService
 
         // Removed
         foreach ($oldFiles as $relative => $oldPath) {
+            if ($this->shouldSkip($relative, $skipPatterns)) {
+                continue;
+            }
+
             if (! isset($newFiles[$relative])) {
                 $changes[] = $this->buildChange($release, $relative, 'removed', $oldPath, null);
             }
         }
 
         return $changes;
+    }
+
+    protected function shouldSkip(string $path, array $skipPatterns): bool
+    {
+        foreach ($skipPatterns as $pattern) {
+            if (fnmatch($pattern, $path)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function mapFiles(string $dir): array

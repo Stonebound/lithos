@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Filament\Resources\OverrideRules\Pages;
+namespace App\Filament\Resources\Users\Pages;
 
-use App\Filament\Resources\OverrideRules\OverrideRuleResource;
+use App\Filament\Resources\Users\UserResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
-class EditOverrideRule extends EditRecord
+class EditUser extends EditRecord
 {
-    protected static string $resource = OverrideRuleResource::class;
+    protected static string $resource = UserResource::class;
 
     protected function getHeaderActions(): array
     {

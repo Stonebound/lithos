@@ -41,7 +41,7 @@ class FtbRealTest extends TestCase
 
         $versionId = $versions[0]['id'] ?? $versions[0]['name'];
         $src = $provider->fetchSource($server->provider_pack_id, $versionId);
-        $this->assertSame('directory', $src['type']);
+        $this->assertSame('dir', $src['type']);
         $this->assertDirectoryExists($src['path']);
     }
 }

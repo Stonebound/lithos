@@ -36,7 +36,9 @@ class DeleteRemovedFiles implements ShouldQueue
             ? $server->include_paths
             : array_values(array_filter(array_map(fn ($l) => trim($l), preg_split('/\r\n|\r|\n/', (string) ($server->include_paths ?? '')))));
 
-        $sftpSvc->deleteRemoved($sftp, $release->prepared_path, $server->remote_root_path, $include);
+        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($server);
+
+        $sftpSvc->deleteRemoved($sftp, $release->prepared_path, $server->remote_root_path, $include, $skipPatterns);
 
         if ($this->userId) {
             $recipient = \App\Models\User::query()->find($this->userId);

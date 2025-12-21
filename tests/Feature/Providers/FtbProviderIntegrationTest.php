@@ -36,7 +36,7 @@ class FtbProviderIntegrationTest extends TestCase
 
         $provider = new FtbProvider;
         $src = $provider->fetchSource($server, $versionId);
-        $this->assertSame('directory', $src['type']);
+        $this->assertSame('dir', $src['type']);
         $this->assertDirectoryExists($src['path']);
     }
 }

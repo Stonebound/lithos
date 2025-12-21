@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use App\Enums\ReleaseStatus;
+use App\Models\Release;
+use App\Models\User;
+use App\Services\SftpService;
+use Filament\Notifications\Notification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+class DeployRelease implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function __construct(
+        public int $releaseId,
+        public bool $deleteRemoved = false,
+        public ?int $userId = null
+    ) {}
+
+    public function handle(): void
+    {
+        /** @var Release|null $release */
+        $release = Release::query()->with('server')->find($this->releaseId);
+        if (! $release || ! $release->prepared_path) {
+            return;
+        }
+
+        try {
+            \App\Filament\Resources\Releases\ReleaseResource::deployRelease($release, $this->deleteRemoved);
+
+            if ($this->userId) {
+                $recipient = User::find($this->userId);
+                if ($recipient) {
+                    Notification::make()
+                        ->title('Deployment complete')
+                        ->body($this->deleteRemoved ? 'Sync complete. Removal of deleted files queued for release '.$release->id : 'Prepared files synchronized to remote server for release '.$release->id)
+                        ->success()
+                        ->sendToDatabase($recipient);
+                }
+            }
+        } catch (\Throwable $e) {
+            if ($this->userId) {
+                $recipient = User::find($this->userId);
+                if ($recipient) {
+                    Notification::make()
+                        ->title('Deployment failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->sendToDatabase($recipient);
+                }
+            }
+            throw $e;
+        }
+    }
+}

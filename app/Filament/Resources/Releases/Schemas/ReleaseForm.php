@@ -59,12 +59,11 @@ class ReleaseForm
                     })())
                     ->dehydrated(false)
                     ->live(),
-                // Provider-driven version selection (not saved to the model).
+                // Provider-driven version selection.
                 Select::make('provider_version_id')
                     ->label('Provider version')
                     ->helperText('Pick a version from the configured provider for the selected server.')
                     ->reactive()
-                    ->dehydrated(false)
                     ->hidden(fn ($get) => $get('source_mode') !== 'provider')
                     ->options(function ($get): array {
                         $serverId = $get('server_id');
@@ -127,18 +126,6 @@ class ReleaseForm
                     ->disk('local')
                     ->directory('uploads')
                     ->hidden(fn ($get) => $get('source_mode') !== 'upload'),
-                // Internal/system fields (hidden)
-                TextInput::make('source_type')->hidden(),
-                TextInput::make('source_path')->hidden(),
-                TextInput::make('extracted_path')->hidden(),
-                TextInput::make('remote_snapshot_path')->hidden(),
-                TextInput::make('prepared_path')->hidden(),
-                TextInput::make('status')
-                    ->hidden()
-                    ->default('draft'),
-                Textarea::make('summary_json')
-                    ->hidden()
-                    ->columnSpanFull(),
             ]);
     }
 }

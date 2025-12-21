@@ -36,7 +36,9 @@ class SnapshotServer implements ShouldQueue
 
         $paths = $server->include_paths;
 
-        $sftpSvc->downloadDirectory($sftp, $server->remote_root_path, $target, $paths);
+        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($server);
+
+        $sftpSvc->downloadDirectory($sftp, $server->remote_root_path, $target, $paths, 0, $skipPatterns);
 
         if ($this->userId) {
             $recipient = \App\Models\User::query()->find($this->userId);

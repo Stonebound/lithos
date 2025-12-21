@@ -12,6 +12,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
@@ -25,16 +26,6 @@ class ReleasesTable
                 TextColumn::make('server.name')
                     ->searchable(),
                 TextColumn::make('version_label')
-                    ->searchable(),
-                TextColumn::make('source_type')
-                    ->searchable(),
-                TextColumn::make('source_path')
-                    ->searchable(),
-                TextColumn::make('extracted_path')
-                    ->searchable(),
-                TextColumn::make('remote_snapshot_path')
-                    ->searchable(),
-                TextColumn::make('prepared_path')
                     ->searchable(),
                 TextColumn::make('status')
                     ->formatStateUsing(function ($state): string {
@@ -57,38 +48,35 @@ class ReleasesTable
                 EditAction::make(),
                 Action::make('prepare')
                     ->label('Prepare')
-                    ->action(function (Release $record): void {
-                        try {
-                            ReleaseResource::prepareRelease($record, null);
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('Prepare failed')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
+                    ->icon(Heroicon::OutlinedCog6Tooth)
+                    ->action(function ($record): void {
+                        $providerVersionId = $record->provider_version_id ?? null;
+                        
+                        \App\Jobs\PrepareRelease::dispatch(
+                            $record->id, 
+                            $providerVersionId ? (string) $providerVersionId : null,
+                            Auth::id()
+                        );
 
-                            return;
-                        }
+                        Notification::make()
+                            ->title('Preparation queued')
+                            ->body('The release preparation has been started in the background.')
+                            ->info()
+                            ->send();
                     }),
                 Action::make('deploy')
                     ->label('Deploy')
-                    ->visible(fn (): bool => (function () {
-                        $u = Auth::user();
+                    ->icon(Heroicon::OutlinedRocketLaunch)
+                    ->visible(fn ($record): bool => (Auth::user()?->isMaintainer() ?? false) && ! empty($record->prepared_path))
+                    ->requiresConfirmation()
+                    ->action(function ($record): void {
+                        \App\Jobs\DeployRelease::dispatch($record->id, true, Auth::id());
 
-                        return $u ? in_array($u->role ?? 'viewer', ['maintainer', 'admin'], true) : false;
-                    })())
-                    ->action(function (Release $record): void {
-                        try {
-                            ReleaseResource::deployRelease($record, false);
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('Deploy failed')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
+                        Notification::make()
+                            ->title('Deployment queued')
+                            ->body('The deployment has been started in the background.')
+                            ->info()
+                            ->send();
                     }),
             ])
             ->toolbarActions([

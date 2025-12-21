@@ -20,7 +20,7 @@ class FileChangeResource extends Resource
 {
     protected static ?string $model = FileChange::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
 
     public static function form(Schema $schema): Schema
     {

@@ -30,7 +30,7 @@ class ReleaseResource extends Resource
 {
     protected static ?string $model = Release::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRocketLaunch;
 
     public static function form(Schema $schema): Schema
     {
@@ -96,7 +96,8 @@ class ReleaseResource extends Resource
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
         $include = $release->server->include_paths ?? [];
-        $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include);
+        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+        $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
         $release->remote_snapshot_path = $remoteDir;
 
         // Apply overrides
@@ -124,12 +125,6 @@ class ReleaseResource extends Resource
             'removed' => count(array_filter($changes, fn ($c) => $c->change_type === 'removed')),
         ];
         $release->save();
-
-        Notification::make()
-            ->title('Release prepared')
-            ->body('Overrides applied and diffs computed.')
-            ->success()
-            ->send();
     }
 
     /**
@@ -145,7 +140,8 @@ class ReleaseResource extends Resource
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
         $include = $release->server->include_paths;
-        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, false, $include);
+        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, false, $include, $skipPatterns);
 
         if ($deleteRemoved) {
             \App\Jobs\DeleteRemovedFiles::dispatch($release->id, Auth::id());
@@ -153,11 +149,5 @@ class ReleaseResource extends Resource
 
         $release->status = ReleaseStatus::Deployed;
         $release->save();
-
-        Notification::make()
-            ->title('Deployment complete')
-            ->body($deleteRemoved ? 'Sync complete. Removal of deleted files queued.' : 'Prepared files synchronized to remote server.')
-            ->success()
-            ->send();
     }
 }

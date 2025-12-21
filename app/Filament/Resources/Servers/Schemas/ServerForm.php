@@ -19,6 +19,12 @@ class ServerForm
                     ->label('Server name')
                     ->required()
                     ->placeholder('Modpackname'),
+                Select::make('minecraft_version')
+                    ->label('Minecraft version')
+                    ->relationship('minecraftVersion', 'id')
+                    ->searchable()
+                    ->preload()
+                    ->native(false),
                 TextInput::make('host')
                     ->label('Host')
                     ->required()
@@ -42,12 +48,15 @@ class ServerForm
                     ])
                     ->required()
                     ->default('password')
-                    ->native(false),
+                    ->native(false)
+                    ->reactive(),
                 TextInput::make('password')
                     ->label('Password')
                     ->password()
+                    ->revealable()
+                    ->required(fn ($get) => $get('auth_type') === 'password')
                     ->hidden(fn ($get) => $get('auth_type') !== 'password')
-                    ->dehydrated(fn ($get) => $get('auth_type') === 'password'),
+                    ->dehydrated(fn ($get, $state) => $get('auth_type') === 'password' && filled($state)),
                 TextInput::make('private_key_path')
                     ->label('Private key path')
                     ->placeholder('/home/user/.ssh/id_rsa')

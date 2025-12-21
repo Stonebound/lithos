@@ -50,11 +50,11 @@ class ServersActionsTest extends TestCase
                 return new \phpseclib3\Net\SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
+            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
-                $localRel = ltrim(str_replace($root, '', $localPath), '/');
+                $localRel = 'test-server-local/'.ltrim(str_replace($root, '', $localPath), '/');
                 Storage::disk('local')->makeDirectory($localRel);
                 foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
                     $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
@@ -76,6 +76,10 @@ class ServersActionsTest extends TestCase
             ->callAction('snapshot')
             ->assertHasNoActionErrors();
 
-        $this->assertTrue(Storage::disk('local')->exists('servers/'.$server->id.'/snapshot/hello.txt'));
+        $this->assertTrue(Storage::disk('local')->exists('test-server-local/servers/'.$server->id.'/snapshot/hello.txt'));
+
+        // cleanup
+        Storage::disk('local')->deleteDirectory('test-server-local');
+        Storage::disk('local')->deleteDirectory($remoteRel);
     }
 }

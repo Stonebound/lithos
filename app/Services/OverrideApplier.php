@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use Illuminate\Http\Client\Response;
@@ -21,62 +22,106 @@ class OverrideApplier
         $this->copyDirectory($sourceDir, $preparedDir);
         $rules = OverrideRule::query()
             ->where(function ($q) use ($release) {
-                $q->where('scope', 'global')
+                $q->where(function ($q2) use ($release) {
+                    $q2->where('scope', 'global')
+                        ->where(function ($q) use ($release) {
+                            $q->whereNull('minecraft_version')
+                                ->orWhere('minecraft_version', $release->server->minecraft_version);
+                        });
+                })
                     ->orWhere(function ($q2) use ($release) {
                         $q2->where('scope', 'server')
-                            ->where('server_id', $release->server_id);
+                            ->whereHas('servers', function ($q3) use ($release) {
+                                $q3->where('servers.id', $release->server_id);
+                            });
                     });
             })
             ->where('enabled', true)
             ->orderByDesc('priority')
             ->get();
 
+        $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
+
         foreach ($rules as $rule) {
             $this->applyRule($rule, $preparedDir);
+        }
+
+        // Remove skipped files from prepared directory so they aren't even considered for upload
+        if (! empty($skipPatterns)) {
+            $disk = Storage::disk('local');
+            foreach ($disk->allFiles($preparedDir) as $file) {
+                $relative = ltrim(str_replace($preparedDir.'/', '', $file), '/');
+                foreach ($skipPatterns as $pattern) {
+                    if (fnmatch($pattern, $relative)) {
+                        $disk->delete($file);
+                        break;
+                    }
+                }
+            }
         }
     }
 
     protected function applyRule(OverrideRule $rule, string $root): void
     {
-        if ($rule->type === 'file_add') {
+        if ($rule->type === OverrideRuleType::FileAdd) {
             $payload = $rule->payload ?? [];
-            $to = (string) ($payload['to'] ?? '');
-            $fromUpload = (string) ($payload['from_upload'] ?? '');
-            $fromUrl = (string) ($payload['from_url'] ?? '');
             $overwrite = (bool) ($payload['overwrite'] ?? true);
-            if ($to === '') {
-                return;
+            $files = $payload['files'] ?? [];
+
+            // Support legacy single-file rules
+            if (empty($files) && (isset($payload['from_upload']) || isset($payload['to']))) {
+                $files = [
+                    [
+                        'from_upload' => $payload['from_upload'] ?? '',
+                        'to' => $payload['to'] ?? '',
+                        'from_url' => $payload['from_url'] ?? '',
+                    ],
+                ];
             }
+
             $disk = Storage::disk('local');
-            $target = trim($root.'/'.$to, '/');
-            $targetParent = dirname($target);
-            if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
-                $disk->makeDirectory($targetParent);
-            }
 
-            if (! $overwrite && $disk->exists($target)) {
-                return;
-            }
-            if ($fromUpload !== '') {
-                if (! $disk->copy($fromUpload, $target)) {
-                    $disk->put($target, $disk->get($fromUpload));
+            foreach ($files as $fileData) {
+                $to = (string) ($fileData['to'] ?? '');
+                $fromUpload = (string) ($fileData['from_upload'] ?? '');
+                $fromUrl = (string) ($fileData['from_url'] ?? '');
+
+                if ($to === '') {
+                    continue;
                 }
 
-                return;
-            }
-            if ($fromUrl !== '') {
-                try {
-                    /** @var Response $resp */
-                    $resp = Http::timeout(30)->get($fromUrl);
-                    if ($resp->successful()) {
-                        $bin = $resp->body();
-                        $disk->put($target, $bin);
+                $target = trim($root.'/'.$to, '/');
+                $targetParent = dirname($target);
+                if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
+                    $disk->makeDirectory($targetParent);
+                }
+
+                if (! $overwrite && $disk->exists($target)) {
+                    continue;
+                }
+
+                if ($fromUpload !== '') {
+                    if (! $disk->copy($fromUpload, $target)) {
+                        $disk->put($target, $disk->get($fromUpload));
                     }
-                } catch (\Throwable $e) {
-                    // ignore fetch errors
+
+                    continue;
                 }
 
-                return;
+                if ($fromUrl !== '') {
+                    try {
+                        /** @var Response $resp */
+                        $resp = Http::timeout(30)->get($fromUrl);
+                        if ($resp->successful()) {
+                            $bin = $resp->body();
+                            $disk->put($target, $bin);
+                        }
+                    } catch (\Throwable $e) {
+                        // ignore fetch errors
+                    }
+
+                    continue;
+                }
             }
 
             return;
@@ -84,18 +129,29 @@ class OverrideApplier
 
         $disk = Storage::disk('local');
         $iterator = $disk->allFiles($root);
+        $patterns = (array) ($rule->path_patterns ?? []);
+
         foreach ($iterator as $file) {
             $relative = ltrim(str_replace($root.'/', '', $file), '/');
-            if (! fnmatch($rule->path_pattern, $relative)) {
+            $matched = false;
+            foreach ($patterns as $pattern) {
+                if (fnmatch($pattern, $relative)) {
+                    $matched = true;
+                    break;
+                }
+            }
+
+            if (! $matched) {
                 continue;
             }
-            if ($rule->type === 'text_replace') {
+
+            if ($rule->type === OverrideRuleType::TextReplace) {
                 $this->applyTextReplace($file, $rule->payload);
-            } elseif ($rule->type === 'json_patch') {
+            } elseif ($rule->type === OverrideRuleType::JsonPatch) {
                 $this->applyJsonPatch($file, $rule->payload);
-            } elseif ($rule->type === 'yaml_patch') {
+            } elseif ($rule->type === OverrideRuleType::YamlPatch) {
                 $this->applyYamlPatch($file, $rule->payload);
-            } elseif ($rule->type === 'file_remove') {
+            } elseif ($rule->type === OverrideRuleType::FileRemove) {
                 $disk->delete($file);
             }
         }

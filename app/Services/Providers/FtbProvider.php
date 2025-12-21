@@ -69,6 +69,7 @@ class FtbProvider implements ProviderInterface
         // Prepare target directory
         $targetDir = 'tmp/ftb/'.uniqid('ftb_', true);
         Storage::disk('local')->makeDirectory($targetDir);
+        $absTargetDir = Storage::disk('local')->path($targetDir);
 
         // Determine how to run installer and pass non-interactive flags (installer is a binary, not a JAR)
         $packId = (int) $providerPackId;
@@ -77,7 +78,7 @@ class FtbProvider implements ProviderInterface
         $cmd = [
             $installerPath,
             '-auto', '-accept-eula',
-            '-dir', $targetDir,
+            '-dir', $absTargetDir,
             '-pack', (string) $packId,
             '-version', (string) $verId,
             '-provider', 'ftb',
@@ -85,12 +86,12 @@ class FtbProvider implements ProviderInterface
             '-just-files', '-no-java',
         ];
 
-        $process = new Process($cmd, $targetDir, null, null, 300);
+        $process = new Process($cmd, $absTargetDir, null, null, 300);
         $process->run();
         if (! $process->isSuccessful()) {
             throw new \RuntimeException('FTB installer failed: '.$process->getErrorOutput());
         }
 
-        return ['type' => 'directory', 'path' => $targetDir];
+        return ['type' => 'dir', 'path' => $targetDir];
     }
 }

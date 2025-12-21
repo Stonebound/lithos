@@ -52,7 +52,7 @@ class OverrideRulesFileOpsTest extends TestCase
                 return new \phpseclib3\Net\SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
+            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
@@ -76,8 +76,8 @@ class OverrideRulesFileOpsTest extends TestCase
 
         // Add file_add rule (global)
         OverrideRule::query()->create([
-            'name' => 'AddExtra', 'scope' => 'global', 'server_id' => null,
-            'path_pattern' => '*', 'type' => 'file_add', 'payload' => [
+            'name' => 'AddExtra', 'scope' => 'global',
+            'path_patterns' => ['*'], 'type' => 'file_add', 'payload' => [
                 'from_upload' => 'uploads/override-files/extra.jar',
                 'to' => 'mods/extra.jar', 'overwrite' => true,
             ], 'enabled' => true, 'priority' => 10,
@@ -85,8 +85,8 @@ class OverrideRulesFileOpsTest extends TestCase
 
         // Add file_remove rule (global) targeting remove-me.jar
         OverrideRule::query()->create([
-            'name' => 'RemoveJar', 'scope' => 'global', 'server_id' => null,
-            'path_pattern' => 'mods/remove-me.jar', 'type' => 'file_remove', 'payload' => [], 'enabled' => true, 'priority' => 5,
+            'name' => 'RemoveJar', 'scope' => 'global',
+            'path_patterns' => ['mods/remove-me.jar'], 'type' => 'file_remove', 'payload' => [], 'enabled' => true, 'priority' => 5,
         ]);
 
         // Prepare

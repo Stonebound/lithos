@@ -66,7 +66,6 @@ class CurseForgeProvider implements ProviderInterface
         }
         $fileData = $fileResponse->json('data') ?? [];
 
-        dd($fileData);
         $serverPackId = $fileData['serverPackFileId'] ?? null;
         $downloadUrl = $fileData['downloadUrl'] ?? null;
 

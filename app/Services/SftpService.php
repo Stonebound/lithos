@@ -31,7 +31,7 @@ class SftpService
         return $sftp;
     }
 
-    public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
+    public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
     {
         $items = $sftp->rawlist($remotePath, true);
         if (! is_array($items)) {
@@ -48,19 +48,25 @@ class SftpService
             }
             $remoteItem = rtrim($remotePath, '/').'/'.$name;
             $relative = $name;
-            $isDir = $sftp->is_dir($remoteItem);
-            if ($depth === 0 && ! empty($includeTopDirs) && $isDir && ! in_array($name, $includeTopDirs, true)) {
+
+            if ($this->shouldSkip($relative, $skipPatterns)) {
                 continue;
             }
 
-            $isLink = $sftp->is_link($remoteItem);
-            if ($isLink) {
+            if ($sftp->is_link($remoteItem)) {
                 continue; // Skip symlinks
             }
 
+            if ($depth === 0 && ! empty($includeTopDirs) && ! in_array($name, $includeTopDirs, true)) {
+                continue;
+            }
+
+            $isDir = $sftp->is_dir($remoteItem);
+            $isFile = $sftp->is_file($remoteItem);
+
             if ($isDir) {
-                $this->downloadDirectory($sftp, $remoteItem, $localPath.'/'.$relative, $includeTopDirs, $depth + 1);
-            } else {
+                $this->downloadDirectory($sftp, $remoteItem, $localPath.'/'.$relative, $includeTopDirs, $depth + 1, $skipPatterns);
+            } elseif ($isFile) {
                 $content = $sftp->get($remoteItem);
                 if ($content === false) {
                     throw new \RuntimeException('Failed to download file: '.$remoteItem);
@@ -71,7 +77,7 @@ class SftpService
         }
     }
 
-    public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = []): void
+    public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = [], array $skipPatterns = []): void
     {
         $disk = Storage::disk('local');
         $localRoot = rtrim($disk->path(''), '/');
@@ -89,6 +95,11 @@ class SftpService
                     continue;
                 }
             }
+
+            if ($this->shouldSkip($relative, $skipPatterns)) {
+                continue;
+            }
+
             $remoteFile = rtrim($remotePath, '/').'/'.$relative;
             $remoteDir = dirname($remoteFile);
             $sftp->mkdir($remoteDir, -1, true);
@@ -100,11 +111,11 @@ class SftpService
         }
 
         if ($deleteRemoved) {
-            $this->deleteRemovedFiles($sftp, $localRel, $remotePath, $includeTopDirs);
+            $this->deleteRemovedFiles($sftp, $localRel, $remotePath, $includeTopDirs, $skipPatterns);
         }
     }
 
-    protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = []): void
+    protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = [], array $skipPatterns = []): void
     {
         $disk = Storage::disk('local');
         $remoteList = $sftp->rawlist($remotePath, true);
@@ -121,11 +132,22 @@ class SftpService
                 continue;
             }
             $remoteItem = rtrim($remotePath, '/').'/'.$name;
-            $isDir = $sftp->is_dir($remoteItem);
-            if (! empty($includeTopDirs) && $isDir && ! in_array($name, $includeTopDirs, true)) {
+
+            if ($sftp->is_link($remoteItem)) {
                 continue;
             }
+
+            if (! empty($includeTopDirs) && ! in_array($name, $includeTopDirs, true)) {
+                continue;
+            }
+
+            $isDir = $sftp->is_dir($remoteItem);
             $relative = $name;
+
+            if ($this->shouldSkip($relative, $skipPatterns)) {
+                continue;
+            }
+
             $localItem = $localPath.'/'.$relative;
 
             if (! $disk->exists($localItem)) {
@@ -138,9 +160,20 @@ class SftpService
         }
     }
 
-    public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = []): void
+    public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = [], array $skipPatterns = []): void
     {
-        $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $includeTopDirs);
+        $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $includeTopDirs, $skipPatterns);
+    }
+
+    protected function shouldSkip(string $path, array $skipPatterns): bool
+    {
+        foreach ($skipPatterns as $pattern) {
+            if (fnmatch($pattern, $path)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function ensureLocalDir(string $dir): void

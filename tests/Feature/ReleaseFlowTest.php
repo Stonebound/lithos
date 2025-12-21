@@ -55,7 +55,7 @@ class ReleaseFlowTest extends TestCase
                 return new SFTP('localhost');
             }
 
-            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0): void
+            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
             {
                 // Create a remote snapshot with one file using Storage
                 $root = Storage::disk('local')->path('');
@@ -64,7 +64,7 @@ class ReleaseFlowTest extends TestCase
                 Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
             }
 
-            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = []): void
+            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = [], array $skipPatterns = []): void
             {
                 // Assert prepared files exist
                 if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {
@@ -86,6 +86,7 @@ class ReleaseFlowTest extends TestCase
         if ($zipBytes === false) {
             $this->fail('Failed to read generated zip for upload');
         }
+        Storage::disk('local')->delete($zipPath);
         $uploaded = UploadedFile::fake()->createWithContent('modpack.zip', $zipBytes);
 
         Filament::setCurrentPanel('admin');
@@ -102,7 +103,9 @@ class ReleaseFlowTest extends TestCase
         $release = \App\Models\Release::query()->latest()->first();
         \Livewire\Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
             ->callAction('prepare')
-            ->assertHasNoActionErrors()
+            ->assertHasNoActionErrors();
+
+        \Livewire\Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
             ->callAction('deploy')
             ->assertHasNoActionErrors();
     }
