@@ -59,7 +59,10 @@ class PrepareRelease extends Command
         $this->info('Fetching remote snapshot via SFTP...');
         $sftp = $sftpService->connect($server);
         $remoteSnapshot = storage_path('app/modpacks/'.$release->id.'/current');
-        $sftpService->downloadDirectory($sftp, rtrim($server->remote_root_path, '/'), $remoteSnapshot, $server->include_paths ?? []);
+        $include = is_array($server->include_paths)
+            ? $server->include_paths
+            : array_values(array_filter(array_map(fn ($l) => trim($l), preg_split('/\r\n|\r|\n/', (string) ($server->include_paths ?? '')))));
+        $sftpService->downloadDirectory($sftp, rtrim($server->remote_root_path, '/'), $remoteSnapshot, $include);
         $release->update(['remote_snapshot_path' => $remoteSnapshot]);
 
         $this->info('Computing diffs...');

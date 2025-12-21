@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use App\Models\Server;
+use App\Services\SftpService;
+use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+class SnapshotServer implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function __construct(public int $serverId, public ?int $userId = null) {}
+
+    public function handle(): void
+    {
+        /** @var Server|null $server */
+        $server = Server::query()->find($this->serverId);
+        if (! $server) {
+            return;
+        }
+
+        /** @var SftpService $sftpSvc */
+        $sftpSvc = app(SftpService::class);
+        $sftp = $sftpSvc->connect($server);
+        $target = storage_path('app/servers/'.$server->id.'/snapshot');
+        if (! is_dir($target)) {
+            mkdir($target, 0777, true);
+        }
+
+        $paths = $server->include_paths;
+
+        $sftpSvc->downloadDirectory($sftp, $server->remote_root_path, $target, $paths);
+
+        if ($this->userId) {
+            $recipient = \App\Models\User::query()->find($this->userId);
+            if ($recipient) {
+                FilamentNotification::make()
+                    ->title('Snapshot complete')
+                    ->body('Saved to: '.$target)
+                    ->sendToDatabase($recipient);
+            }
+        }
+    }
+}

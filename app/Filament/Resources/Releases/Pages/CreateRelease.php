@@ -23,6 +23,16 @@ class CreateRelease extends CreateRecord
             unset($data['source_zip']);
         }
 
+        // Ensure NOT NULL constraints are satisfied even when using provider (no immediate source).
+        if (! isset($data['source_type']) || ! isset($data['source_path'])) {
+            $placeholderDir = storage_path('app/tmp/releases/'.uniqid('release_', true));
+            if (! is_dir($placeholderDir)) {
+                mkdir($placeholderDir, 0777, true);
+            }
+            $data['source_type'] = 'dir';
+            $data['source_path'] = $placeholderDir;
+        }
+
         return $data;
     }
 }

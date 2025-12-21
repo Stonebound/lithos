@@ -24,6 +24,9 @@ class EditRelease extends EditRecord
                     $state = $this->form->getState();
                     $providerVersionId = $state['provider_version_id'] ?? null;
                     ReleaseResource::prepareRelease($this->record, $providerVersionId ? (string) $providerVersionId : null);
+                    // Refresh the record so subsequent actions (like Deploy) reflect the prepared state.
+                    $this->record->refresh();
+                    $this->fillForm();
                 }),
             Action::make('deploy')
                 ->label('Deploy')
@@ -32,6 +35,7 @@ class EditRelease extends EditRecord
 
                     return $u ? in_array($u->role ?? 'viewer', ['maintainer', 'admin'], true) : false;
                 })())
+                ->disabled(fn (): bool => empty($this->record->prepared_path))
                 ->form([
                     Toggle::make('delete_removed')->label('Delete removed files')->default(false),
                 ])

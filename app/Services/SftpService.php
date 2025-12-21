@@ -51,6 +51,11 @@ class SftpService
                 continue;
             }
 
+            $isLink = $sftp->is_link($remoteItem);
+            if ($isLink) {
+                continue; // Skip symlinks
+            }
+
             if ($isDir) {
                 $this->downloadDirectory($sftp, $remoteItem, $localPath.'/'.$relative, $includeTopDirs, $depth + 1);
             } else {
@@ -128,6 +133,11 @@ class SftpService
                 }
             }
         }
+    }
+
+    public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = []): void
+    {
+        $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $includeTopDirs);
     }
 
     protected function ensureLocalDir(string $dir): void

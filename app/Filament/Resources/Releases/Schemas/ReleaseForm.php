@@ -6,8 +6,8 @@ namespace App\Filament\Resources\Releases\Schemas;
 
 use App\Models\Server;
 use App\Services\Providers\ProviderResolver;
-use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,7 +24,19 @@ class ReleaseForm
                     ->relationship('server', 'name')
                     ->required()
                     ->helperText('Choose the server to prepare and deploy this release to.')
-                    ->reactive(),
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        if (! $state) {
+                            return;
+                        }
+                        /** @var Server|null $server */
+                        $server = Server::query()->find($state);
+                        if ($server && $server->provider && $server->provider_pack_id) {
+                            $set('source_mode', 'provider');
+                        } else {
+                            $set('source_mode', 'upload');
+                        }
+                    }),
                 TextInput::make('version_label')
                     ->label('Version label')
                     ->placeholder('e.g. 1.0.0'),
@@ -35,7 +47,16 @@ class ReleaseForm
                         'provider' => 'Use provider',
                         'upload' => 'Upload zip',
                     ])
-                    ->default('upload')
+                    ->default(fn ($get) => (function () use ($get) {
+                        $serverId = $get('server_id');
+                        if (! $serverId) {
+                            return 'upload';
+                        }
+                        /** @var Server|null $server */
+                        $server = Server::query()->find($serverId);
+
+                        return ($server && $server->provider && $server->provider_pack_id) ? 'provider' : 'upload';
+                    })())
                     ->dehydrated(false)
                     ->live(),
                 // Provider-driven version selection (not saved to the model).
@@ -64,13 +85,40 @@ class ReleaseForm
                             return [];
                         }
 
-                        $versions = $provider->listVersions($server);
+                        $versions = $provider->listVersions($server->provider_pack_id);
                         $out = [];
                         foreach ($versions as $ver) {
                             $out[(string) ($ver['id'] ?? '')] = (string) ($ver['name'] ?? $ver['id'] ?? '');
                         }
 
                         return $out;
+                    })
+                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                        if (! $state) {
+                            return;
+                        }
+                        $serverId = $get('server_id');
+                        if (! $serverId) {
+                            return;
+                        }
+                        /** @var Server|null $server */
+                        $server = Server::query()->find($serverId);
+                        if (! $server) {
+                            return;
+                        }
+                        /** @var ProviderResolver $resolver */
+                        $resolver = app(ProviderResolver::class);
+                        $provider = $resolver->for($server);
+                        if (! $provider) {
+                            return;
+                        }
+                        $versions = $provider->listVersions($server->provider_pack_id);
+                        foreach ($versions as $ver) {
+                            if ((string) ($ver['id'] ?? '') === (string) $state) {
+                                $set('version_label', (string) ($ver['name'] ?? $ver['id'] ?? ''));
+                                break;
+                            }
+                        }
                     }),
                 FileUpload::make('source_zip')
                     ->label('Source zip')

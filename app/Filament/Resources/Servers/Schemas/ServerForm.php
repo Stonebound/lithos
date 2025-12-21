@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Servers\Schemas;
 
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -57,11 +57,11 @@ class ServerForm
                     ->label('Remote root path')
                     ->required()
                     ->default('/'),
-                Textarea::make('include_paths')
+                TagsInput::make('include_paths')
                     ->label('Include folders')
-                    ->placeholder("config\nmods\nkubejs\ndefaultconfigs\nresourcepacks")
+                    ->placeholder('Add folders to include')
+                    ->suggestions(['config', 'mods', 'kubejs', 'defaultconfigs', 'resourcepacks'])
                     ->helperText('Top-level folders to sync. Defaults to common modpack folders if left empty.')
-                    ->rows(4)
                     ->columnSpanFull(),
                 Select::make('provider')
                     ->label('Source provider (optional)')

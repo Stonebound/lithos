@@ -80,14 +80,14 @@ class ReleasesActionsTest extends TestCase
 
         $fakeProvider = new class implements ProviderInterface
         {
-            public function listVersions(Server $server): array
+            public function listVersions(string|int $providerPackId): array
             {
                 return [
                     ['id' => 'v1', 'name' => 'Version 1'],
                 ];
             }
 
-            public function fetchSource(Server $server, $versionId): array
+            public function fetchSource($providerPackId, $versionId): array
             {
                 return ['type' => 'directory', 'path' => storage_path('app/test-source')];
             }

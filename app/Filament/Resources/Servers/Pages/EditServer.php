@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth;
 
 class EditServer extends EditRecord
 {
@@ -47,27 +48,13 @@ class EditServer extends EditRecord
                 ->action(function (): void {
                     /** @var Server $server */
                     $server = $this->record;
-                    try {
-                        /** @var SftpService $sftpSvc */
-                        $sftpSvc = app(SftpService::class);
-                        $sftp = $sftpSvc->connect($server);
-                        $target = storage_path('app/servers/'.$server->id.'/snapshot');
-                        if (! is_dir($target)) {
-                            mkdir($target, 0777, true);
-                        }
-                        $sftpSvc->downloadDirectory($sftp, $server->remote_root_path, $target, $server->include_paths ?? []);
-                        Notification::make()
-                            ->title('Snapshot complete')
-                            ->body('Saved to: '.$target)
-                            ->success()
-                            ->send();
-                    } catch (\Throwable $e) {
-                        Notification::make()
-                            ->title('Snapshot failed')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
-                    }
+                    $userId = Auth::id();
+                    \App\Jobs\SnapshotServer::dispatch($server->id, $userId);
+                    Notification::make()
+                        ->title('Snapshot queued')
+                        ->body('The remote snapshot will run in the background.')
+                        ->success()
+                        ->send();
                 }),
             DeleteAction::make(),
         ];

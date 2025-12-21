@@ -23,6 +23,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class ReleaseResource extends Resource
 {
@@ -72,7 +73,7 @@ class ReleaseResource extends Resource
             if (! $provider) {
                 throw new \RuntimeException('No provider configured for this server.');
             }
-            $src = $provider->fetchSource($server, $providerVersionId);
+            $src = $provider->fetchSource($server->provider_pack_id, $providerVersionId);
             $release->source_type = $src['type'];
             $release->source_path = $src['path'];
             $release->version_label = $release->version_label ?: (string) $providerVersionId;
@@ -93,7 +94,10 @@ class ReleaseResource extends Resource
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
-        $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $release->server->include_paths ?? []);
+        $include = is_array($release->server->include_paths)
+            ? $release->server->include_paths
+            : array_values(array_filter(array_map(fn ($l) => trim($l), preg_split('/\r\n|\r|\n/', (string) ($release->server->include_paths ?? '')))));
+        $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include);
         $release->remote_snapshot_path = $remoteDir;
 
         // Apply overrides
@@ -141,14 +145,19 @@ class ReleaseResource extends Resource
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
-        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $deleteRemoved, $release->server->include_paths ?? []);
+        $include = $release->server->include_paths;
+        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, false, $include);
+
+        if ($deleteRemoved) {
+            \App\Jobs\DeleteRemovedFiles::dispatch($release->id, Auth::id());
+        }
 
         $release->status = 'deployed';
         $release->save();
 
         Notification::make()
             ->title('Deployment complete')
-            ->body('Prepared files synchronized to remote server.')
+            ->body($deleteRemoved ? 'Sync complete. Removal of deleted files queued.' : 'Prepared files synchronized to remote server.')
             ->success()
             ->send();
     }

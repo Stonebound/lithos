@@ -7,7 +7,7 @@ namespace App\Console\Commands;
 use App\Models\Server;
 use Illuminate\Console\Command;
 
-class SetServerExcludes extends Command
+class SetServerIncludes extends Command
 {
     protected $signature = 'server:include {server_id} {paths*}';
 

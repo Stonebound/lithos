@@ -40,7 +40,7 @@ class DeployRelease extends Command
             $release->prepared_path,
             rtrim($server->remote_root_path, '/'),
             (bool) $this->option('delete-removed'),
-            $server->include_paths ?? []
+            (is_array($server->include_paths) ? $server->include_paths : array_values(array_filter(array_map(fn ($l) => trim($l), preg_split('/\r\n|\r|\n/', (string) ($server->include_paths ?? ''))))))
         );
 
         $release->update(['status' => 'deployed']);

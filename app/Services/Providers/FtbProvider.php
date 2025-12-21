@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Providers;
 
 use App\Models\Server;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
@@ -12,24 +13,21 @@ class FtbProvider implements ProviderInterface
 {
     protected function get(string $url): string
     {
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'ignore_errors' => true,
-                'timeout' => 30,
-            ],
-        ]);
-        $body = @file_get_contents($url, false, $context);
+        /** @var \Illuminate\Http\Client\Response $response */
+        $response = Http::timeout(30)->get($url);
+        if ($response->status() >= 400) {
+            throw new \RuntimeException('HTTP GET failed: '.$url.' (status '.$response->status().')');
+        }
 
-        return $body === false ? '' : $body;
+        return (string) $response->body();
     }
 
-    public function listVersions(Server $server): array
+    public function listVersions(string|int $providerPackId): array
     {
-        if (! $server->provider_pack_id) {
+        if (! $providerPackId) {
             return [];
         }
-        $body = $this->get('https://api.modpacks.ch/public/modpack/'.$server->provider_pack_id);
+        $body = $this->get('https://api.feed-the-beast.com/v1/modpacks/public/modpack/'.$providerPackId);
         $json = json_decode($body, true) ?? [];
         $versions = $json['versions'] ?? [];
 
@@ -41,27 +39,35 @@ class FtbProvider implements ProviderInterface
             ];
         }
 
+        // revert order to have newest versions first
+        $out = array_reverse($out);
+
         return $out;
     }
 
-    public function fetchSource(Server $server, $versionId): array
+    public function fetchSource($providerPackId, $versionId): array
     {
-        // Try to find a linux server installer URL.
-        $manifestBody = $this->get('https://api.modpacks.ch/public/modpack/'.$server->provider_pack_id.'/'.$versionId);
-        $manifest = json_decode($manifestBody, true) ?? [];
+        if (! $providerPackId || ! $versionId) {
+            throw new \RuntimeException('FTB pack id or version id is missing.');
+        }
 
-        $linuxUrl = $manifest['server']['linux'] ?? null;
-        if (! $linuxUrl) {
-            // Some manifests nest under 'targets' or similar; fall back to 'server'->'install'->'linux'
-            $linuxUrl = $manifest['server']['install']['linux'] ?? null;
-        }
-        if (! $linuxUrl || ! is_string($linuxUrl)) {
-            throw new \RuntimeException('FTB linux server installer URL not found in manifest.');
-        }
+        // Static Linux server installer URL per FTB API.
+        $linuxUrl = sprintf(
+            'https://api.feed-the-beast.com/v1/modpacks/public/modpack/%s/%s/server/linux',
+            $providerPackId,
+            $versionId
+        );
 
         $installerContents = $this->get($linuxUrl);
-        $relative = Storage::put('uploads', $installerContents);
-        $installerPath = Storage::path($relative);
+        $absUploads = storage_path('app/private/uploads');
+        if (! is_dir($absUploads)) {
+            @mkdir($absUploads, 0777, true);
+        }
+        Storage::makeDirectory('uploads');
+        // Name must include pack and version to drive installer behavior.
+        $relativePath = 'uploads/'.sprintf('serverinstall_%s_%s', $providerPackId, $versionId);
+        Storage::put($relativePath, $installerContents);
+        $installerPath = Storage::path($relativePath);
 
         // Prepare target directory
         $targetDir = storage_path('app/tmp/ftb/'.uniqid('ftb_', true));
@@ -69,18 +75,20 @@ class FtbProvider implements ProviderInterface
             mkdir($targetDir, 0777, true);
         }
 
-        // Determine how to run installer
-        $cmd = null;
-        if (str_ends_with($installerPath, '.jar')) {
-            $cmd = ['java', '-jar', $installerPath];
-        } elseif (preg_match('/\.(sh|run)$/', $installerPath)) {
-            @chmod($installerPath, 0755);
-            $cmd = [$installerPath];
-        } else {
-            // Still try as binary
-            @chmod($installerPath, 0755);
-            $cmd = [$installerPath];
-        }
+        // Determine how to run installer and pass non-interactive flags (installer is a binary, not a JAR)
+        $packId = (int) $providerPackId;
+        $verId = (int) $versionId;
+        @chmod($installerPath, 0755);
+        $cmd = [
+            $installerPath,
+            '-auto', '-accept-eula',
+            '-dir', $targetDir,
+            '-pack', (string) $packId,
+            '-version', (string) $verId,
+            '-provider', 'ftb',
+            '-apikey', 'public',
+            '-just-files', '-no-java',
+        ];
 
         $process = new Process($cmd, $targetDir, null, null, 300);
         $process->run();
