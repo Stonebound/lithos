@@ -7,8 +7,10 @@ namespace App\Filament\Resources\FileChanges\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class FileChangesTable
@@ -45,7 +47,20 @@ class FileChangesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('release_id')
+                    ->label('Release')
+                    ->relationship('release', 'id')
+                    ->multiple()
+                    ->preload(),
+                SelectFilter::make('change_type')
+                    ->label('Change Type')
+                    ->options([
+                        'added' => 'Added',
+                        'modified' => 'Modified',
+                        'removed' => 'Removed',
+                    ])
+                    ->multiple()
+                    ->preload(),
             ])
             ->recordActions([
                 EditAction::make(),

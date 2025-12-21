@@ -121,7 +121,7 @@ class OverrideRuleForm
                         OverrideRuleType::FileAdd,
                         OverrideRuleType::FileRemove,
                         OverrideRuleType::FileSkip,
-])
+                    ])
                         ? ''
                         : (is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : (string) ($state ?? '')))
                     ->dehydrateStateUsing(function ($state, $get) {

@@ -25,9 +25,9 @@ enum ReleaseStatus: string implements HasColor, HasLabel
     public function getColor(): string|array|null
     {
         return match ($this) {
-            self::Draft => 'gray',
-            self::Prepared => 'blue',
-            self::Deployed => 'green',
+            self::Draft => 'secondary',
+            self::Prepared => 'primary',
+            self::Deployed => 'info',
         };
     }
 }

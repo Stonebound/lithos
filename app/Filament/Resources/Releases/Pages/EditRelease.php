@@ -23,9 +23,9 @@ class EditRelease extends EditRecord
                 ->action(function (): void {
                     $state = $this->form->getState();
                     $providerVersionId = $state['provider_version_id'] ?? $this->record->provider_version_id;
-                    
+
                     \App\Jobs\PrepareRelease::dispatch(
-                        $this->record->id, 
+                        $this->record->id,
                         $providerVersionId ? (string) $providerVersionId : null,
                         Auth::id()
                     );

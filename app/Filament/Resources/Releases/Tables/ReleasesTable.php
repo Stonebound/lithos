@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Releases\Tables;
 
 use App\Enums\ReleaseStatus;
-use App\Filament\Resources\Releases\ReleaseResource;
-use App\Models\Release;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -28,9 +26,7 @@ class ReleasesTable
                 TextColumn::make('version_label')
                     ->searchable(),
                 TextColumn::make('status')
-                    ->formatStateUsing(function ($state): string {
-                        return $state instanceof ReleaseStatus ? $state->value : (string) $state;
-                    })
+                    ->badge()
                     ->searchable(),
                 TextColumn::make('created_at')
                     ->dateTime()
@@ -51,9 +47,9 @@ class ReleasesTable
                     ->icon(Heroicon::OutlinedCog6Tooth)
                     ->action(function ($record): void {
                         $providerVersionId = $record->provider_version_id ?? null;
-                        
+
                         \App\Jobs\PrepareRelease::dispatch(
-                            $record->id, 
+                            $record->id,
                             $providerVersionId ? (string) $providerVersionId : null,
                             Auth::id()
                         );

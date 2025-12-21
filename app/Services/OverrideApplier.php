@@ -17,9 +17,10 @@ class OverrideApplier
     /**
      * Apply overrides to files in $sourceDir, output to $preparedDir.
      */
-    public function apply(Release $release, string $sourceDir, string $preparedDir): void
+    public function apply(Release $release, string $sourceDir, string $preparedDir, ?string $remoteDir = null): void
     {
         $this->copyDirectory($sourceDir, $preparedDir);
+
         $rules = OverrideRule::query()
             ->where(function ($q) use ($release) {
                 $q->where(function ($q2) use ($release) {
@@ -41,6 +42,11 @@ class OverrideApplier
             ->get();
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
+
+        // If we have a remote snapshot, we might want to keep and modify files that aren't in the modpack
+        if ($remoteDir) {
+            $this->copyMatchingRemoteFiles($rules, $remoteDir, $preparedDir, $skipPatterns);
+        }
 
         foreach ($rules as $rule) {
             $this->applyRule($rule, $preparedDir);
@@ -153,6 +159,64 @@ class OverrideApplier
                 $this->applyYamlPatch($file, $rule->payload);
             } elseif ($rule->type === OverrideRuleType::FileRemove) {
                 $disk->delete($file);
+            }
+        }
+    }
+
+    /**
+     * Copy files from remote snapshot to prepared directory if they match a content-modifying rule
+     * and aren't already in the prepared directory (from the modpack source).
+     */
+    protected function copyMatchingRemoteFiles($rules, string $remoteDir, string $preparedDir, array $skipPatterns): void
+    {
+        $disk = Storage::disk('local');
+        $remoteFiles = $disk->allFiles($remoteDir);
+
+        $contentModifyingTypes = [
+            OverrideRuleType::TextReplace,
+            OverrideRuleType::JsonPatch,
+            OverrideRuleType::YamlPatch,
+        ];
+
+        foreach ($remoteFiles as $remoteFile) {
+            $relative = ltrim(str_replace($remoteDir.'/', '', $remoteFile), '/');
+
+            // If already in prepared dir, no need to copy
+            if ($disk->exists($preparedDir.'/'.$relative)) {
+                continue;
+            }
+
+            // If skipped, don't touch
+            $isSkipped = false;
+            foreach ($skipPatterns as $pattern) {
+                if (fnmatch($pattern, $relative)) {
+                    $isSkipped = true;
+                    break;
+                }
+            }
+            if ($isSkipped) {
+                continue;
+            }
+
+            // Check if any content-modifying rule matches
+            foreach ($rules as $rule) {
+                if (! in_array($rule->type, $contentModifyingTypes)) {
+                    continue;
+                }
+
+                $patterns = (array) ($rule->path_patterns ?? []);
+                foreach ($patterns as $pattern) {
+                    if (fnmatch($pattern, $relative)) {
+                        // Match found! Copy to prepared dir so it can be modified and kept.
+                        $target = $preparedDir.'/'.$relative;
+                        $targetParent = dirname($target);
+                        if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
+                            $disk->makeDirectory($targetParent);
+                        }
+                        $disk->put($target, $disk->get($remoteFile));
+                        break 2;
+                    }
+                }
             }
         }
     }

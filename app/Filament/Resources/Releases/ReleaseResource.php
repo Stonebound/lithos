@@ -19,7 +19,6 @@ use App\Services\OverrideApplier;
 use App\Services\Providers\ProviderResolver;
 use App\Services\SftpService;
 use BackedEnum;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -79,6 +78,8 @@ class ReleaseResource extends Resource
             $release->source_path = $src['path'];
             $release->version_label = $release->version_label ?: (string) $providerVersionId;
             $release->save();
+
+            dump('Fetched source from provider: '.$src['path']);
         }
 
         if (! $release->source_type || ! $release->source_path) {
@@ -90,6 +91,7 @@ class ReleaseResource extends Resource
         $newDir = $importer->import($release);
         $release->extracted_path = $newDir;
 
+        dump('Imported to '.$newDir);
         // Snapshot remote
         $remoteDir = 'modpacks/'.$release->id.'/remote';
         /** @var SftpService $sftpSvc */
@@ -100,18 +102,21 @@ class ReleaseResource extends Resource
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
         $release->remote_snapshot_path = $remoteDir;
 
+        dump('Snapshotted to '.$remoteDir);
         // Apply overrides
         $preparedDir = 'modpacks/'.$release->id.'/prepared';
         /** @var OverrideApplier $applier */
         $applier = app(OverrideApplier::class);
-        $applier->apply($release, $newDir, $preparedDir);
+        $applier->apply($release, $newDir, $preparedDir, $remoteDir);
         $release->prepared_path = $preparedDir;
 
+        dump('Prepared to '.$preparedDir);
         // Compute diffs (remote vs prepared)
         /** @var DiffService $diff */
         $diff = app(DiffService::class);
         $changes = $diff->compute($release, $remoteDir, $preparedDir);
 
+        dump('Computed diffs, '.count($changes).' changes found.');
         // Persist file changes
         FileChange::query()->where('release_id', $release->id)->delete();
         foreach ($changes as $change) {

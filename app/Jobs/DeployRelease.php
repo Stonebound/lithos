@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Enums\ReleaseStatus;
 use App\Models\Release;
 use App\Models\User;
-use App\Services\SftpService;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

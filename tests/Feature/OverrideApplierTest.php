@@ -132,7 +132,47 @@ class OverrideApplierTest extends TestCase
         $applier->apply($release, 'source', 'prepared_overwrite');
         $this->assertEquals('new', $disk->get('prepared_overwrite/config.json'));
     }
+    public function test_it_keeps_and_modifies_remote_files_if_rule_matches(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
 
+        // Setup source files (modpack doesn't have config/motd.toml)
+        $disk->put('source/mods/mod1.jar', 'content');
+
+        // Setup remote files (server has config/motd.toml)
+        $disk->put('remote/config/motd.toml', 'motd = Old MOTD');
+        $disk->put('remote/other.txt', 'keep me');
+
+        $server = Server::factory()->create();
+        $release = Release::factory()->create(['server_id' => $server->id]);
+
+        // Rule to modify config/motd.toml
+        OverrideRule::create([
+            'name' => 'Update MOTD',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'path_patterns' => ['config/motd.toml'],
+            'payload' => [
+                'search' => 'Old MOTD',
+                'replace' => 'New MOTD',
+            ],
+        ]);
+
+        $applier = new OverrideApplier;
+        $applier->apply($release, 'source', 'prepared', 'remote');
+
+        // config/motd.toml should be in prepared dir and modified
+        $this->assertTrue($disk->exists('prepared/config/motd.toml'));
+        $this->assertEquals('motd = New MOTD', $disk->get('prepared/config/motd.toml'));
+
+        // other.txt should NOT be in prepared dir (it will be marked as removed by DiffService)
+        $this->assertFalse($disk->exists('prepared/other.txt'));
+
+        // mod1.jar should still be there
+        $this->assertTrue($disk->exists('prepared/mods/mod1.jar'));
+    }
     public function test_it_applies_multiple_path_patterns(): void
     {
         Storage::fake('local');

@@ -4,16 +4,8 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Enums\ReleaseStatus;
-use App\Models\FileChange;
 use App\Models\Release;
-use App\Models\Server;
 use App\Models\User;
-use App\Services\DiffService;
-use App\Services\ModpackImporter;
-use App\Services\OverrideApplier;
-use App\Services\Providers\ProviderResolver;
-use App\Services\SftpService;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -24,6 +16,10 @@ use Illuminate\Queue\SerializesModels;
 class PrepareRelease implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    protected int $timeout = 3600;
+    protected int $tries = 1;
+    protected int $maxExceptions = 1;
 
     public function __construct(
         public int $releaseId,
