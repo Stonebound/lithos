@@ -20,5 +20,6 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->job(new \App\Jobs\FetchMinecraftVersions)->daily();
+        $schedule->job(new \App\Jobs\CleanupOldReleases)->daily();
     })
     ->create();

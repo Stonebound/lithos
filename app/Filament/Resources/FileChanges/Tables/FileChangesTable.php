@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Filament\Resources\FileChanges\Tables;
 
 use App\Enums\FileChangeType;
+use App\Enums\ReleaseStatus;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class FileChangesTable
 {
@@ -48,6 +51,10 @@ class FileChangesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('hide_deployed')
+                    ->label('Hide Deployed')
+                    ->default()
+                    ->query(fn (Builder $query) => $query->whereHas('release', fn ($q) => $q->where('status', '!=', ReleaseStatus::Deployed))),
                 SelectFilter::make('release_id')
                     ->label('Release')
                     ->relationship('release', 'id')
