@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\FileChanges\Tables;
 
+use App\Enums\FileChangeType;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -24,6 +24,7 @@ class FileChangesTable
                 TextColumn::make('relative_path')
                     ->searchable(),
                 TextColumn::make('change_type')
+                    ->badge()
                     ->searchable(),
                 IconColumn::make('is_binary')
                     ->boolean(),
@@ -54,11 +55,7 @@ class FileChangesTable
                     ->preload(),
                 SelectFilter::make('change_type')
                     ->label('Change Type')
-                    ->options([
-                        'added' => 'Added',
-                        'modified' => 'Modified',
-                        'removed' => 'Removed',
-                    ])
+                    ->options(FileChangeType::class)
                     ->multiple()
                     ->preload(),
             ])

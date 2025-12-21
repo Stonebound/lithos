@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Filament;
 
+use App\Enums\FileChangeType;
 use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\Pages\EditRelease;
 use App\Models\Release;
@@ -111,7 +112,7 @@ class ReleasesActionsTest extends TestCase
                 return new \phpseclib3\Net\SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
+            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
@@ -141,7 +142,7 @@ class ReleasesActionsTest extends TestCase
                 }
             }
 
-            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = [], array $skipPatterns = []): void
+            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = []): void
             {
                 // no-op for test
             }
@@ -151,9 +152,12 @@ class ReleasesActionsTest extends TestCase
         // Use Livewire to call the actions on the Edit page
         Filament::setCurrentPanel('admin');
         Livewire::test(EditRelease::class, ['record' => $release->getKey()])
+            ->set('data.source_mode', 'provider')
             ->set('data.provider_version_id', 'v1')
             ->callAction('prepare')
             ->assertHasNoActionErrors();
+
+        $release = $release->refresh();
 
         Livewire::test(EditRelease::class, ['record' => $release->getKey()])
             ->callAction('deploy')
@@ -165,16 +169,20 @@ class ReleasesActionsTest extends TestCase
         $this->assertNotEmpty($release->prepared_path);
         $this->assertTrue(Storage::disk('local')->exists($release->prepared_path));
 
+        // Assert server state updated
+        $server = $server->refresh();
+        $this->assertSame('v1', $server->provider_current_version);
+
         // One file modified, one new
         $this->assertDatabaseHas('file_changes', [
             'release_id' => $release->id,
             'relative_path' => 'foo.txt',
-            'change_type' => 'modified',
+            'change_type' => FileChangeType::Modified->value,
         ]);
         $this->assertDatabaseHas('file_changes', [
             'release_id' => $release->id,
             'relative_path' => 'bar.txt',
-            'change_type' => 'added',
+            'change_type' => FileChangeType::Added->value,
         ]);
     }
 }

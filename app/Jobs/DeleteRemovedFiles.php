@@ -6,7 +6,6 @@ namespace App\Jobs;
 
 use App\Models\Release;
 use App\Services\SftpService;
-use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,7 +16,7 @@ class DeleteRemovedFiles implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public int $releaseId, public ?int $userId = null) {}
+    public function __construct(public int $releaseId) {}
 
     public function handle(): void
     {
@@ -39,15 +38,5 @@ class DeleteRemovedFiles implements ShouldQueue
         $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($server);
 
         $sftpSvc->deleteRemoved($sftp, $release->prepared_path, $server->remote_root_path, $include, $skipPatterns);
-
-        if ($this->userId) {
-            $recipient = \App\Models\User::query()->find($this->userId);
-            if ($recipient) {
-                FilamentNotification::make()
-                    ->title('Deployment cleanup finished')
-                    ->body('Release '.$release->id.' cleanup is complete.')
-                    ->sendToDatabase($recipient);
-            }
-        }
     }
 }

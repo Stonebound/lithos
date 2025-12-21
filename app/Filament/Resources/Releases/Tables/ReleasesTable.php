@@ -45,6 +45,7 @@ class ReleasesTable
                 Action::make('prepare')
                     ->label('Prepare')
                     ->icon(Heroicon::OutlinedCog6Tooth)
+                    ->visible(fn ($record): bool => in_array($record->status, [ReleaseStatus::Draft, ReleaseStatus::Prepared]))
                     ->action(function ($record): void {
                         $providerVersionId = $record->provider_version_id ?? null;
 
@@ -63,10 +64,10 @@ class ReleasesTable
                 Action::make('deploy')
                     ->label('Deploy')
                     ->icon(Heroicon::OutlinedRocketLaunch)
-                    ->visible(fn ($record): bool => (Auth::user()?->isMaintainer() ?? false) && ! empty($record->prepared_path))
+                    ->visible(fn ($record): bool => $record->status === ReleaseStatus::Prepared)
                     ->requiresConfirmation()
                     ->action(function ($record): void {
-                        \App\Jobs\DeployRelease::dispatch($record->id, true, Auth::id());
+                        \App\Jobs\DeployRelease::dispatch($record->id, Auth::id());
 
                         Notification::make()
                             ->title('Deployment queued')

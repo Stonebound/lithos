@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases;
 
+use App\Enums\FileChangeType;
 use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\Pages\CreateRelease;
 use App\Filament\Resources\Releases\Pages\EditRelease;
@@ -23,7 +24,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 class ReleaseResource extends Resource
 {
@@ -76,10 +76,9 @@ class ReleaseResource extends Resource
             $src = $provider->fetchSource($server->provider_pack_id, $providerVersionId);
             $release->source_type = $src['type'];
             $release->source_path = $src['path'];
+            $release->provider_version_id = $providerVersionId;
             $release->version_label = $release->version_label ?: (string) $providerVersionId;
             $release->save();
-
-            dump('Fetched source from provider: '.$src['path']);
         }
 
         if (! $release->source_type || ! $release->source_path) {
@@ -91,7 +90,6 @@ class ReleaseResource extends Resource
         $newDir = $importer->import($release);
         $release->extracted_path = $newDir;
 
-        dump('Imported to '.$newDir);
         // Snapshot remote
         $remoteDir = 'modpacks/'.$release->id.'/remote';
         /** @var SftpService $sftpSvc */
@@ -102,7 +100,6 @@ class ReleaseResource extends Resource
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
         $release->remote_snapshot_path = $remoteDir;
 
-        dump('Snapshotted to '.$remoteDir);
         // Apply overrides
         $preparedDir = 'modpacks/'.$release->id.'/prepared';
         /** @var OverrideApplier $applier */
@@ -110,13 +107,11 @@ class ReleaseResource extends Resource
         $applier->apply($release, $newDir, $preparedDir, $remoteDir);
         $release->prepared_path = $preparedDir;
 
-        dump('Prepared to '.$preparedDir);
         // Compute diffs (remote vs prepared)
         /** @var DiffService $diff */
         $diff = app(DiffService::class);
         $changes = $diff->compute($release, $remoteDir, $preparedDir);
 
-        dump('Computed diffs, '.count($changes).' changes found.');
         // Persist file changes
         FileChange::query()->where('release_id', $release->id)->delete();
         foreach ($changes as $change) {
@@ -125,9 +120,9 @@ class ReleaseResource extends Resource
 
         $release->status = ReleaseStatus::Prepared;
         $release->summary_json = [
-            'added' => count(array_filter($changes, fn ($c) => $c->change_type === 'added')),
-            'modified' => count(array_filter($changes, fn ($c) => $c->change_type === 'modified')),
-            'removed' => count(array_filter($changes, fn ($c) => $c->change_type === 'removed')),
+            'added' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Added)),
+            'modified' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Modified)),
+            'removed' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Removed)),
         ];
         $release->save();
     }
@@ -135,7 +130,7 @@ class ReleaseResource extends Resource
     /**
      * Deploy the prepared directory to the remote server via SFTP.
      */
-    public static function deployRelease(Release $release, bool $deleteRemoved = false): void
+    public static function deployRelease(Release $release): void
     {
         if (! $release->prepared_path) {
             throw new \RuntimeException('Release not prepared.');
@@ -144,15 +139,16 @@ class ReleaseResource extends Resource
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
-        $include = $release->server->include_paths;
         $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
-        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, false, $include, $skipPatterns);
+        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns);
 
-        if ($deleteRemoved) {
-            \App\Jobs\DeleteRemovedFiles::dispatch($release->id, Auth::id());
-        }
+        \App\Jobs\DeleteRemovedFiles::dispatchSync($release->id);
 
         $release->status = ReleaseStatus::Deployed;
         $release->save();
+
+        $release->server->update([
+            'provider_current_version' => $release->provider_version_id,
+        ]);
     }
 }

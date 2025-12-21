@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\FileChangeType;
 use App\Models\FileChange;
 use App\Models\Release;
 use Illuminate\Support\Facades\Storage;
@@ -27,10 +28,10 @@ class DiffService
 
             $oldPath = $oldFiles[$relative] ?? null;
             if (! $oldPath) {
-                $changes[] = $this->buildChange($release, $relative, 'added', null, $newPath);
+                $changes[] = $this->buildChange($release, $relative, FileChangeType::Added, null, $newPath);
             } else {
                 if (! $this->sameFile($oldPath, $newPath)) {
-                    $changes[] = $this->buildChange($release, $relative, 'modified', $oldPath, $newPath);
+                    $changes[] = $this->buildChange($release, $relative, FileChangeType::Modified, $oldPath, $newPath);
                 }
             }
         }
@@ -42,7 +43,7 @@ class DiffService
             }
 
             if (! isset($newFiles[$relative])) {
-                $changes[] = $this->buildChange($release, $relative, 'removed', $oldPath, null);
+                $changes[] = $this->buildChange($release, $relative, FileChangeType::Removed, $oldPath, null);
             }
         }
 
@@ -93,7 +94,7 @@ class DiffService
         return $hashA === $hashB;
     }
 
-    protected function buildChange(Release $release, string $relative, string $type, ?string $oldPath, ?string $newPath): FileChange
+    protected function buildChange(Release $release, string $relative, FileChangeType $type, ?string $oldPath, ?string $newPath): FileChange
     {
         $isBinary = $this->isBinary($oldPath ?? $newPath ?? '') || $this->hasBinaryExtension($relative);
         $diffSummary = null;
@@ -103,7 +104,7 @@ class DiffService
         $checksumOld = $oldPath && $disk->exists($oldPath) ? hash('sha256', $disk->get($oldPath)) : null;
         $checksumNew = $newPath && $disk->exists($newPath) ? hash('sha256', $disk->get($newPath)) : null;
 
-        if ($type === 'modified' && ! $isBinary && $oldPath && $newPath) {
+        if ($type === FileChangeType::Modified && ! $isBinary && $oldPath && $newPath) {
             $diffSummary = $this->generateDiffSummary($oldPath, $newPath);
         }
 

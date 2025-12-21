@@ -19,7 +19,6 @@ class DeployRelease implements ShouldQueue
 
     public function __construct(
         public int $releaseId,
-        public bool $deleteRemoved = false,
         public ?int $userId = null
     ) {}
 
@@ -32,14 +31,14 @@ class DeployRelease implements ShouldQueue
         }
 
         try {
-            \App\Filament\Resources\Releases\ReleaseResource::deployRelease($release, $this->deleteRemoved);
+            \App\Filament\Resources\Releases\ReleaseResource::deployRelease($release, true);
 
             if ($this->userId) {
                 $recipient = User::find($this->userId);
                 if ($recipient) {
                     Notification::make()
                         ->title('Deployment complete')
-                        ->body($this->deleteRemoved ? 'Sync complete. Removal of deleted files queued for release '.$release->id : 'Prepared files synchronized to remote server for release '.$release->id)
+                        ->body('Sync complete. Removal of deleted files queued for release '.$release->id)
                         ->success()
                         ->sendToDatabase($recipient);
                 }

@@ -18,7 +18,9 @@ class PrepareRelease implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected int $timeout = 3600;
+
     protected int $tries = 1;
+
     protected int $maxExceptions = 1;
 
     public function __construct(

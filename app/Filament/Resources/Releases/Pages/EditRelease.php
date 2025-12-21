@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases\Pages;
 
+use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\ReleaseResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -20,6 +21,7 @@ class EditRelease extends EditRecord
         return [
             Action::make('prepare')
                 ->label('Prepare')
+                ->visible(fn (): bool => in_array($this->record->status, [ReleaseStatus::Draft, ReleaseStatus::Prepared]))
                 ->action(function (): void {
                     $state = $this->form->getState();
                     $providerVersionId = $state['provider_version_id'] ?? $this->record->provider_version_id;
@@ -38,11 +40,10 @@ class EditRelease extends EditRecord
                 }),
             Action::make('deploy')
                 ->label('Deploy')
-                ->visible(fn (): bool => Auth::user()?->isMaintainer() ?? false)
-                ->disabled(fn (): bool => empty($this->record->prepared_path))
+                ->visible(fn (): bool => $this->record->status === ReleaseStatus::Prepared)
                 ->requiresConfirmation()
                 ->action(function (): void {
-                    \App\Jobs\DeployRelease::dispatch($this->record->id, true, Auth::id());
+                    \App\Jobs\DeployRelease::dispatch($this->record->id, Auth::id());
 
                     Notification::make()
                         ->title('Deployment queued')

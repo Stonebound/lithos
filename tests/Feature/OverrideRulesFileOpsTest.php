@@ -52,7 +52,7 @@ class OverrideRulesFileOpsTest extends TestCase
                 return new \phpseclib3\Net\SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
+            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');

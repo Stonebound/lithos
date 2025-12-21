@@ -26,7 +26,7 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        $this->get('/')->assertForbidden();
+        $this->get('/')->assertOk();
 
         $this->assertAuthenticatedAs($user);
     }
@@ -45,7 +45,7 @@ class AuthenticationTest extends TestCase
         $response = $this->get('/');
 
         $response
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_users_can_logout(): void

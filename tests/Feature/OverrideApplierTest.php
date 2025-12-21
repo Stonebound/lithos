@@ -132,6 +132,7 @@ class OverrideApplierTest extends TestCase
         $applier->apply($release, 'source', 'prepared_overwrite');
         $this->assertEquals('new', $disk->get('prepared_overwrite/config.json'));
     }
+
     public function test_it_keeps_and_modifies_remote_files_if_rule_matches(): void
     {
         Storage::fake('local');
@@ -173,6 +174,7 @@ class OverrideApplierTest extends TestCase
         // mod1.jar should still be there
         $this->assertTrue($disk->exists('prepared/mods/mod1.jar'));
     }
+
     public function test_it_applies_multiple_path_patterns(): void
     {
         Storage::fake('local');

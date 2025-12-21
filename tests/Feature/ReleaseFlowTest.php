@@ -55,7 +55,7 @@ class ReleaseFlowTest extends TestCase
                 return new SFTP('localhost');
             }
 
-            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = []): void
+            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
             {
                 // Create a remote snapshot with one file using Storage
                 $root = Storage::disk('local')->path('');
@@ -64,7 +64,7 @@ class ReleaseFlowTest extends TestCase
                 Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
             }
 
-            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, bool $deleteRemoved = false, array $includeTopDirs = [], array $skipPatterns = []): void
+            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = []): void
             {
                 // Assert prepared files exist
                 if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {

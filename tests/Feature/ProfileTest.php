@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\User;
+use Filament\Auth\Pages\EditProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-// Profile UI has been removed in favor of Filament admin.
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
@@ -15,47 +17,67 @@ class ProfileTest extends TestCase
 
     public function test_profile_page_is_displayed(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
 
         $response = $this->actingAs($user)->get('/profile');
 
-        $response
-            ->assertNotFound();
+        $response->assertOk();
     }
 
     public function test_profile_information_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
 
         $this->actingAs($user);
 
-        $this->markTestSkipped('Profile update UI removed.');
+        Livewire::test(EditProfile::class)
+            ->fillForm([
+                'name' => 'Test User',
+                'email' => 'test@example.com',
+                'currentPassword' => 'password',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $user->refresh();
+
+        $this->assertSame('Test User', $user->name);
+        $this->assertSame('test@example.com', $user->email);
     }
 
-    public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
+    public function test_password_can_be_updated(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
 
         $this->actingAs($user);
 
-        $this->markTestSkipped('Profile update UI removed.');
+        Livewire::test(EditProfile::class)
+            ->fillForm([
+                'password' => 'new-password',
+                'passwordConfirmation' => 'new-password',
+                'currentPassword' => 'password',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('new-password', $user->refresh()->password));
     }
 
     public function test_user_can_delete_their_account(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
 
         $this->actingAs($user);
 
-        $this->markTestSkipped('Profile delete UI removed.');
-    }
-
-    public function test_correct_password_must_be_provided_to_delete_account(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user);
-
-        $this->markTestSkipped('Profile delete UI removed.');
+        // Filament's default profile page does not support account deletion.
+        $this->markTestSkipped('Filament default profile does not support account deletion.');
     }
 }

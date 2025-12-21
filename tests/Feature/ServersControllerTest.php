@@ -34,7 +34,7 @@ class ServersControllerTest extends TestCase
         ]);
 
         $this->get('/servers')
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_create_server(): void

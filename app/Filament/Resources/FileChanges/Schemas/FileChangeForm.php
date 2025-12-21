@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\FileChanges\Schemas;
 
+use App\Enums\FileChangeType;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,7 +22,8 @@ class FileChangeForm
                     ->required(),
                 TextInput::make('relative_path')
                     ->required(),
-                TextInput::make('change_type')
+                Select::make('change_type')
+                    ->options(FileChangeType::class)
                     ->required(),
                 Toggle::make('is_binary')
                     ->required(),
