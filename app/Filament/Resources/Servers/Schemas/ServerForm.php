@@ -82,12 +82,12 @@ class ServerForm
                     ->native(false)
                     ->helperText('Set a provider to enable provider-driven releases.'),
                 TextInput::make('provider_pack_id')
-                    ->label('Provider pack ID')
+                    ->label('Current pack ID')
                     ->numeric()
                     ->placeholder('e.g. 123456')
                     ->helperText('For CurseForge: project ID. For FTB: pack ID.'),
                 TextInput::make('provider_current_version')
-                    ->label('Current provider version')
+                    ->label('Last version ID')
                     ->disabled()
                     ->helperText('Set automatically when preparing a release.'),
             ]);

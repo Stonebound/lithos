@@ -144,6 +144,7 @@ class ReleaseResource extends Resource
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
         $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+
         $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns);
 
         DeleteRemovedFiles::dispatchSync($release->id);

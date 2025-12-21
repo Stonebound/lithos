@@ -91,6 +91,8 @@ class SftpService
         $localRoot = rtrim($disk->path(''), '/');
         $localRel = $this->normalizeLocalPath($localPath, $localRoot);
 
+        $knownDirs = [];
+
         foreach ($disk->allFiles($localRel) as $file) {
             $relative = ltrim(str_replace($localRel.'/', '', $file), '/');
 
@@ -100,16 +102,18 @@ class SftpService
 
             $remoteFile = rtrim($remotePath, '/').'/'.$relative;
             $remoteDir = dirname($remoteFile);
-            if (! $sftp->is_dir($remoteDir)) {
-                $sftp->mkdir($remoteDir, -1, true);
+
+            if (! isset($knownDirs[$remoteDir])) {
+                if (! $sftp->is_dir($remoteDir)) {
+                    $sftp->mkdir($remoteDir, -1, true);
+                }
+                $knownDirs[$remoteDir] = true;
             }
 
             if (! $sftp->put($remoteFile, $disk->path($file), \phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE)) {
                 throw new \RuntimeException('Failed to upload: '.$remoteFile);
             }
         }
-
-        $this->deleteRemovedFiles($sftp, $localRel, $remotePath, $skipPatterns);
     }
 
     protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], array $includeTopDirs = [], int $depth = 0, string $accumulatedPath = ''): void
@@ -140,16 +144,16 @@ class SftpService
                 continue;
             }
 
-            if ($sftp->is_link($remoteItem)) {
+            $type = $meta['type'] ?? null;
+            if ($type === 3) { // NET_SFTP_TYPE_SYMLINK
                 continue;
             }
 
-            $isDir = $sftp->is_dir($remoteItem);
             $localItem = $localPath.'/'.$name;
 
             if (! $disk->exists($localItem)) {
                 $sftp->delete($remoteItem, true);
-            } elseif ($isDir) {
+            } elseif ($type === 2) { // NET_SFTP_TYPE_DIRECTORY
                 $this->deleteRemovedFiles($sftp, $localItem, $remoteItem, $skipPatterns, $includeTopDirs, $depth + 1, $currentRelative);
             }
         }

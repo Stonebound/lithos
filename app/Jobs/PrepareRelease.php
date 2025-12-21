@@ -32,8 +32,6 @@ class PrepareRelease implements ShouldQueue
 
     public function handle(): void
     {
-        ini_set('memory_limit', '512M');
-
         /** @var Release|null $release */
         $release = Release::query()->with('server')->find($this->releaseId);
         if (! $release) {

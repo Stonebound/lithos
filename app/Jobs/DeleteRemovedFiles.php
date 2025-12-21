@@ -16,6 +16,10 @@ class DeleteRemovedFiles implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 3600;
+
+    public int $tries = 1;
+
     public function __construct(public int $releaseId) {}
 
     public function handle(): void

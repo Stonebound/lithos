@@ -18,6 +18,12 @@ class DeployRelease implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 3600;
+
+    public int $tries = 1;
+
+    protected int $maxExceptions = 1;
+
     public function __construct(
         public int $releaseId,
         public ?int $userId = null
@@ -32,7 +38,7 @@ class DeployRelease implements ShouldQueue
         }
 
         try {
-            ReleaseResource::deployRelease($release, true);
+            ReleaseResource::deployRelease($release);
 
             if ($this->userId) {
                 $recipient = User::find($this->userId);

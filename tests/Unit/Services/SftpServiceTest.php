@@ -56,7 +56,7 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('mkdir')->andReturn(true);
         $sftp->shouldReceive('put')->andReturn(true);
 
-        $service->syncDirectory($sftp, $disk->path('sync'), 'remote/path');
+        $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
         $this->assertTrue(true);
     }
@@ -88,7 +88,7 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('mkdir')->andReturn(true);
         $sftp->shouldReceive('put')->andReturn(true);
 
-        $service->syncDirectory($sftp, $disk->path('sync'), 'remote/path');
+        $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
         $this->assertTrue(true);
     }
@@ -142,7 +142,7 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('mkdir')->andReturn(true);
         $sftp->shouldReceive('put')->andReturn(true);
 
-        $service->syncDirectory($sftp, $disk->path('sync'), 'remote/path');
+        $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
         $this->assertTrue(true);
     }
@@ -326,7 +326,7 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('mkdir')->andReturn(true);
         $sftp->shouldReceive('put')->andReturn(true);
 
-        $service->syncDirectory($sftp, $disk->path('sync'), 'remote/path');
+        $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
         $this->assertTrue(true);
     }
