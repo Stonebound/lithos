@@ -10,6 +10,8 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Livewire;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class ReleaseForm
@@ -18,6 +20,15 @@ class ReleaseForm
     {
         return $schema
             ->components([
+                Section::make('Logs')
+                    ->description('Live output from the preparation and deployment jobs.')
+                    ->schema([
+                        Livewire::make(\App\Livewire\Releases\ReleaseLogs::class, fn ($record) => ['release' => $record])
+                            ->hidden(fn ($record) => ! $record),
+                    ])
+                    ->columnSpanFull()
+                    ->collapsible()
+                    ->collapsed(fn ($record) => $record?->status === \App\Enums\ReleaseStatus::Deployed),
                 Select::make('server_id')
                     ->label('Target server')
                     ->relationship('server', 'name')

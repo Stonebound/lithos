@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ModpackImporter
 {
-    public function import(Release $release): string
+    public function import(Release $release, ?callable $onProgress = null): string
     {
         $baseDir = 'modpacks/'.$release->id;
         $targetDir = $baseDir.'/new';
@@ -23,15 +23,19 @@ class ModpackImporter
             // extract to local dir, then move contents to targetDir
             $zip->extractTo(Storage::disk('local')->path($targetDir));
             $zip->close();
+
+            if ($onProgress) {
+                $onProgress('extract', 'Extracted zip archive');
+            }
         } else {
             $sourceDir = $this->normalizeLocalPath($release->source_path);
-            $this->copyDirectory($sourceDir, $targetDir);
+            $this->copyDirectory($sourceDir, $targetDir, $onProgress);
         }
 
         return $targetDir;
     }
 
-    private function copyDirectory(string $sourceDir, string $targetDir): void
+    private function copyDirectory(string $sourceDir, string $targetDir, ?callable $onProgress = null): void
     {
         $disk = Storage::disk('local');
 
@@ -43,6 +47,10 @@ class ModpackImporter
             $targetParent = dirname($targetFile);
             if ($targetParent !== '.' && ! $disk->exists($targetParent)) {
                 $disk->makeDirectory($targetParent);
+            }
+
+            if ($onProgress) {
+                $onProgress('copy', $relative);
             }
 
             copy($disk->path($sourceFile), $disk->path($targetFile));

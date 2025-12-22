@@ -35,4 +35,9 @@ class Release extends Model
     {
         return $this->hasMany(FileChange::class);
     }
+
+    public function logs(): HasMany
+    {
+        return $this->hasMany(ReleaseLog::class);
+    }
 }

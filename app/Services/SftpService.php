@@ -85,7 +85,7 @@ class SftpService
         }
     }
 
-    public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = []): void
+    public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
     {
         $disk = Storage::disk('local');
         $localRoot = rtrim($disk->path(''), '/');
@@ -110,13 +110,17 @@ class SftpService
                 $knownDirs[$remoteDir] = true;
             }
 
+            if ($onProgress) {
+                $onProgress('upload', $relative);
+            }
+
             if (! $sftp->put($remoteFile, $disk->path($file), \phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE)) {
                 throw new \RuntimeException('Failed to upload: '.$remoteFile);
             }
         }
     }
 
-    protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], array $includeTopDirs = [], int $depth = 0, string $accumulatedPath = ''): void
+    protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], array $includeTopDirs = [], int $depth = 0, string $accumulatedPath = '', ?callable $onProgress = null): void
     {
         $disk = Storage::disk('local');
         $remoteList = $sftp->rawlist($remotePath);
@@ -152,16 +156,19 @@ class SftpService
             $localItem = $localPath.'/'.$name;
 
             if (! $disk->exists($localItem)) {
+                if ($onProgress) {
+                    $onProgress('delete', $currentRelative);
+                }
                 $sftp->delete($remoteItem, true);
             } elseif ($type === 2) { // NET_SFTP_TYPE_DIRECTORY
-                $this->deleteRemovedFiles($sftp, $localItem, $remoteItem, $skipPatterns, $includeTopDirs, $depth + 1, $currentRelative);
+                $this->deleteRemovedFiles($sftp, $localItem, $remoteItem, $skipPatterns, $includeTopDirs, $depth + 1, $currentRelative, $onProgress);
             }
         }
     }
 
-    public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = [], array $skipPatterns = []): void
+    public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = [], array $skipPatterns = [], ?callable $onProgress = null): void
     {
-        $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $skipPatterns, $includeTopDirs);
+        $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $skipPatterns, $includeTopDirs, 0, '', $onProgress);
     }
 
     protected function shouldSkip(string $path, array $skipPatterns): bool

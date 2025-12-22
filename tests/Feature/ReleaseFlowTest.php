@@ -65,7 +65,7 @@ class ReleaseFlowTest extends TestCase
                 Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
             }
 
-            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = []): void
+            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
             {
                 // Assert prepared files exist
                 if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {

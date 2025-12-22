@@ -54,6 +54,7 @@ class DeployRelease implements ShouldBeUnique, ShouldQueue
                 }
             }
         } catch (\Throwable $e) {
+            ReleaseResource::log($release, 'Deployment failed: '.$e->getMessage(), 'error');
             if ($this->userId) {
                 $recipient = User::find($this->userId);
                 if ($recipient) {

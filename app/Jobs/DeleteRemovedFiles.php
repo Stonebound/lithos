@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Services\SftpService;
@@ -31,15 +32,21 @@ class DeleteRemovedFiles implements ShouldQueue
             return;
         }
 
+        ReleaseResource::log($release, 'Starting cleanup of removed files...');
+
         $server = $release->server;
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($server);
 
-        $include = $server->include_paths;
+        $include = $server->include_paths ?? [];
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($server);
 
-        $sftpSvc->deleteRemoved($sftp, $release->prepared_path, $server->remote_root_path, $include, $skipPatterns);
+        $sftpSvc->deleteRemoved($sftp, $release->prepared_path, $server->remote_root_path, $include, $skipPatterns, function ($action, $file) use ($release) {
+            ReleaseResource::log($release, "Deleted: {$file}");
+        });
+
+        ReleaseResource::log($release, 'Cleanup of removed files completed.');
     }
 }

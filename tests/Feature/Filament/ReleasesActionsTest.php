@@ -144,7 +144,7 @@ class ReleasesActionsTest extends TestCase
                 }
             }
 
-            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = []): void
+            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
             {
                 // no-op for test
             }

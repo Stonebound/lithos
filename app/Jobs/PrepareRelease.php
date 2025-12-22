@@ -55,6 +55,7 @@ class PrepareRelease implements ShouldBeUnique, ShouldQueue
                 }
             }
         } catch (\Throwable $e) {
+            ReleaseResource::log($release, 'Preparation failed: '.$e->getMessage(), 'error');
             if ($this->userId) {
                 $recipient = User::find($this->userId);
                 if ($recipient) {

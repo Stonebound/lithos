@@ -33,6 +33,14 @@ class ReleaseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRocketLaunch;
 
+    public static function log(Release $release, string $message, string $level = 'info'): void
+    {
+        $release->logs()->create([
+            'message' => $message,
+            'level' => $level,
+        ]);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ReleaseForm::configure($schema);
@@ -46,7 +54,7 @@ class ReleaseResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\FileChangesRelationManager::class,
         ];
     }
 
@@ -65,14 +73,19 @@ class ReleaseResource extends Resource
      */
     public static function prepareRelease(Release $release, ?string $providerVersionId = null): void
     {
+        $release->logs()->delete();
+        self::log($release, 'Starting release preparation...');
+
         // Resolve provider source if requested
         if ($providerVersionId) {
+            self::log($release, "Resolving provider version: {$providerVersionId}");
             /** @var Server $server */
             $server = $release->server;
             /** @var ProviderResolver $resolver */
             $resolver = app(ProviderResolver::class);
             $provider = $resolver->for($server);
             if (! $provider) {
+                self::log($release, 'No provider configured for this server.', 'error');
                 throw new \RuntimeException('No provider configured for this server.');
             }
             $src = $provider->fetchSource($server->provider_pack_id, $providerVersionId);
@@ -81,18 +94,25 @@ class ReleaseResource extends Resource
             $release->provider_version_id = $providerVersionId;
             $release->version_label = $release->version_label ?: (string) $providerVersionId;
             $release->save();
+            self::log($release, "Source resolved: {$src['type']} at {$src['path']}");
         }
 
         if (! $release->source_type || ! $release->source_path) {
+            self::log($release, 'Source not set. Select a provider version or specify source fields.', 'error');
             throw new \RuntimeException('Source not set. Select a provider version or specify source fields.');
         }
 
+        self::log($release, 'Importing modpack...');
         /** @var ModpackImporter $importer */
         $importer = app(ModpackImporter::class);
-        $newDir = $importer->import($release);
+        $newDir = $importer->import($release, function ($action, $file) use ($release) {
+            self::log($release, "Importing: {$file}");
+        });
         $release->extracted_path = $newDir;
+        self::log($release, "Modpack imported to: {$newDir}");
 
         // Snapshot remote
+        self::log($release, 'Snapshotting remote server...');
         $remoteDir = 'modpacks/'.$release->id.'/remote';
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
@@ -104,15 +124,21 @@ class ReleaseResource extends Resource
 
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
         $release->remote_snapshot_path = $remoteDir;
+        self::log($release, "Remote snapshot completed to: {$remoteDir}");
 
         // Apply overrides
+        self::log($release, 'Applying overrides...');
         $preparedDir = 'modpacks/'.$release->id.'/prepared';
         /** @var OverrideApplier $applier */
         $applier = app(OverrideApplier::class);
-        $applier->apply($release, $newDir, $preparedDir, $remoteDir);
+        $applier->apply($release, $newDir, $preparedDir, $remoteDir, function ($action, $name) use ($release) {
+            self::log($release, "Applying rule: {$name}");
+        });
         $release->prepared_path = $preparedDir;
+        self::log($release, "Overrides applied to: {$preparedDir}");
 
         // Compute diffs (remote vs prepared)
+        self::log($release, 'Computing diffs...');
         /** @var DiffService $diff */
         $diff = app(DiffService::class);
         $changes = $diff->compute($release, $remoteDir, $preparedDir);
@@ -122,6 +148,7 @@ class ReleaseResource extends Resource
         foreach ($changes as $change) {
             $change->save();
         }
+        self::log($release, 'File changes persisted.');
 
         $release->status = ReleaseStatus::Prepared;
         $release->summary_json = [
@@ -130,6 +157,7 @@ class ReleaseResource extends Resource
             'removed' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Removed)),
         ];
         $release->save();
+        self::log($release, 'Release preparation completed successfully.');
     }
 
     /**
@@ -138,16 +166,22 @@ class ReleaseResource extends Resource
     public static function deployRelease(Release $release): void
     {
         if (! $release->prepared_path) {
+            self::log($release, 'Release not prepared.', 'error');
             throw new \RuntimeException('Release not prepared.');
         }
 
+        self::log($release, 'Starting deployment...');
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
         $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
 
-        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns);
+        self::log($release, 'Syncing directory to remote...');
+        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns, function ($action, $file) use ($release) {
+            self::log($release, "Uploaded: {$file}");
+        });
 
+        self::log($release, 'Cleaning up removed files...');
         DeleteRemovedFiles::dispatchSync($release->id);
 
         $release->status = ReleaseStatus::Deployed;
@@ -156,5 +190,6 @@ class ReleaseResource extends Resource
         $release->server->update([
             'provider_current_version' => $release->provider_version_id,
         ]);
+        self::log($release, 'Deployment completed successfully.');
     }
 }

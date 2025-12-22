@@ -16,7 +16,7 @@ class OverrideApplier
     /**
      * Apply overrides to files in $sourceDir, output to $preparedDir.
      */
-    public function apply(Release $release, string $sourceDir, string $preparedDir, ?string $remoteDir = null): void
+    public function apply(Release $release, string $sourceDir, string $preparedDir, ?string $remoteDir = null, ?callable $onProgress = null): void
     {
         $this->copyDirectory($sourceDir, $preparedDir);
 
@@ -48,6 +48,9 @@ class OverrideApplier
         }
 
         foreach ($rules as $rule) {
+            if ($onProgress) {
+                $onProgress('rule', $rule->name);
+            }
             $this->applyRule($rule, $preparedDir);
         }
 
