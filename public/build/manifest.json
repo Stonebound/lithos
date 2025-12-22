@@ -1,0 +1,11 @@
+{
+  "resources/css/filament/admin/theme.css": {
+    "file": "assets/theme-oMjcAyDu.css",
+    "src": "resources/css/filament/admin/theme.css",
+    "isEntry": true,
+    "name": "theme",
+    "names": [
+      "theme.css"
+    ]
+  }
+}
