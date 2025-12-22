@@ -1,3 +1,4 @@
+# perms on linux for a sane deployment
 chown -R user:user .
 chgrp www-data .
 chmod 750 .

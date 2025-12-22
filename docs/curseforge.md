@@ -1,1 +1,0 @@
-https://api.curseforge.com/v1/mods/{packId}
