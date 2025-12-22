@@ -17,6 +17,7 @@ use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
 use App\Services\DiffService;
+use App\Services\FileUtility;
 use App\Services\ModpackImporter;
 use App\Services\OverrideApplier;
 use App\Services\Providers\ProviderResolver;
@@ -102,6 +103,12 @@ class ReleaseResource extends Resource
             throw new \RuntimeException('Source not set. Select a provider version or specify source fields.');
         }
 
+        // Clear local folders before snapshot/import
+        $baseDir = 'modpacks/'.$release->id;
+        FileUtility::deleteDirectory($baseDir.'/remote');
+        FileUtility::deleteDirectory($baseDir.'/new');
+        FileUtility::deleteDirectory($baseDir.'/prepared');
+
         self::log($release, 'Importing modpack...');
         /** @var ModpackImporter $importer */
         $importer = app(ModpackImporter::class);
@@ -113,7 +120,7 @@ class ReleaseResource extends Resource
 
         // Snapshot remote
         self::log($release, 'Snapshotting remote server...');
-        $remoteDir = 'modpacks/'.$release->id.'/remote';
+        $remoteDir = $baseDir.'/remote';
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
 

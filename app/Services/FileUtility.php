@@ -9,6 +9,17 @@ use Illuminate\Support\Facades\Storage;
 class FileUtility
 {
     /**
+     * Recursively delete a directory and all its contents from the local storage disk.
+     */
+    public static function deleteDirectory(string $dir): void
+    {
+        $disk = Storage::disk('local');
+        if ($disk->exists($dir)) {
+            $disk->deleteDirectory($dir);
+        }
+    }
+
+    /**
      * Determine if a file is binary.
      */
     public static function isBinary(string $path): bool

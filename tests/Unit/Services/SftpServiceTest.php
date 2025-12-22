@@ -346,7 +346,7 @@ class SftpServiceTest extends TestCase
         $sftp->shouldReceive('get')->andReturn(true);
 
         $service = new SftpService;
-        
+
         // This should not throw a TypeError
         $service->downloadDirectory($sftp, 'remote/path', 'local/path', ['123']);
 
