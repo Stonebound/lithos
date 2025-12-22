@@ -330,4 +330,26 @@ class SftpServiceTest extends TestCase
 
         $this->assertTrue(true);
     }
+
+    public function test_it_handles_numeric_filenames_as_strings()
+    {
+        Storage::fake('local');
+        $sftp = Mockery::mock(SFTP::class);
+
+        // Mock rawlist with a numeric key (PHP will cast this to int if we aren't careful)
+        $sftp->shouldReceive('rawlist')
+            ->with('remote/path')
+            ->andReturn([
+                123 => ['type' => 1], // Numeric filename "123"
+            ]);
+
+        $sftp->shouldReceive('get')->andReturn(true);
+
+        $service = new SftpService;
+        
+        // This should not throw a TypeError
+        $service->downloadDirectory($sftp, 'remote/path', 'local/path', ['123']);
+
+        $this->assertTrue(true);
+    }
 }

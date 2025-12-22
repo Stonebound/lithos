@@ -46,6 +46,7 @@ class SftpService
         $diskRoot = $disk->path('');
 
         foreach ($items as $name => $meta) {
+            $name = (string) $name;
             if ($name === '.' || $name === '..') {
                 continue;
             }
@@ -133,6 +134,7 @@ class SftpService
         }
 
         foreach ($remoteList as $name => $meta) {
+            $name = (string) $name;
             if ($name === '.' || $name === '..') {
                 continue;
             }
