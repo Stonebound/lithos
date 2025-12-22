@@ -14,7 +14,7 @@ class ReleaseLogs extends Component
     public function render()
     {
         return view('livewire.releases.release-logs', [
-            'logs' => $this->release->logs()->latest()->get(),
+            'logs' => $this->release->logs()->latest('id')->get(),
         ]);
     }
 }

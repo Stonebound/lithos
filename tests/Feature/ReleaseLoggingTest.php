@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Enums\ReleaseStatus;
@@ -47,9 +49,10 @@ class ReleaseLoggingTest extends TestCase
         ]);
 
         // Mock services to avoid real IO but trigger callbacks
-        $this->mock(ModpackImporter::class, function ($mock) use ($release) {
+        $this->mock(ModpackImporter::class, function ($mock) {
             $mock->shouldReceive('import')->andReturnUsing(function ($r, $callback) {
                 $callback('copy', 'file1.txt');
+
                 return 'modpacks/1/new';
             });
         });
@@ -83,7 +86,7 @@ class ReleaseLoggingTest extends TestCase
             'status' => ReleaseStatus::Prepared,
         ]);
 
-        $this->mock(SftpService::class, function ($mock) use ($release) {
+        $this->mock(SftpService::class, function ($mock) {
             $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
             $mock->shouldReceive('syncDirectory')->andReturnUsing(function ($s, $l, $r, $skip, $callback) {
                 $callback('upload', 'uploaded_file.txt');
@@ -96,7 +99,7 @@ class ReleaseLoggingTest extends TestCase
         // We don't want to run the actual DeleteRemovedFiles job as it might try to connect
         // But deployRelease calls DeleteRemovedFiles::dispatchSync
         // So we need to mock SftpService again for the job if it runs in same process
-        
+
         ReleaseResource::deployRelease($release);
 
         $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
@@ -109,7 +112,7 @@ class ReleaseLoggingTest extends TestCase
         $user = User::factory()->create();
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
-        
+
         $release->logs()->create(['message' => 'Log 1', 'level' => 'info']);
         $release->logs()->create(['message' => 'Log 2', 'level' => 'error']);
 

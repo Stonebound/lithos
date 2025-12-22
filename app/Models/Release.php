@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ReleaseStatus;
+use App\Jobs\DeployRelease;
+use App\Jobs\PrepareRelease;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Release extends Model
 {
@@ -39,5 +43,15 @@ class Release extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(ReleaseLog::class);
+    }
+
+    public function isDeploying(): bool
+    {
+        return Cache::lock(UniqueLock::getKey(new DeployRelease($this->id)), 1)->get(fn () => true) === false;
+    }
+
+    public function isPreparing(): bool
+    {
+        return Cache::lock(UniqueLock::getKey(new PrepareRelease($this->id)), 1)->get(fn () => true) === false;
     }
 }
