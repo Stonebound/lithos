@@ -18,19 +18,6 @@ class ServersTable
             ->columns([
                 TextColumn::make('name')
                     ->searchable(),
-                TextColumn::make('host')
-                    ->searchable(),
-                TextColumn::make('port')
-                    ->numeric()
-                    ->sortable(),
-                TextColumn::make('username')
-                    ->searchable(),
-                TextColumn::make('auth_type')
-                    ->searchable(),
-                TextColumn::make('private_key_path')
-                    ->searchable(),
-                TextColumn::make('remote_root_path')
-                    ->searchable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

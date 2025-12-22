@@ -76,6 +76,8 @@ class ReleasesActionsTest extends TestCase
             // Provide initial source to satisfy NOT NULL constraints; will be replaced by provider.
             'source_type' => 'dir',
             'source_path' => $sourceDir,
+            'version_label' => 'v1',
+            'provider_version_id' => 'v1',
         ]);
 
         $fakeProvider = new class implements ProviderInterface
@@ -152,8 +154,6 @@ class ReleasesActionsTest extends TestCase
         // Use Livewire to call the actions on the Edit page
         Filament::setCurrentPanel('admin');
         Livewire::test(EditRelease::class, ['record' => $release->getKey()])
-            ->set('data.source_mode', 'provider')
-            ->set('data.provider_version_id', 'v1')
             ->callAction('prepare')
             ->assertHasNoActionErrors();
 
