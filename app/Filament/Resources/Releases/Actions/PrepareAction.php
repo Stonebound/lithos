@@ -6,6 +6,7 @@ namespace App\Filament\Resources\Releases\Actions;
 
 use App\Enums\ReleaseStatus;
 use App\Jobs\PrepareRelease as PrepareReleaseJob;
+use App\Services\FileUtility;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
@@ -14,12 +15,11 @@ class PrepareAction
 {
     public static function make(): Action
     {
-
         return Action::make('prepare')
             ->label('Prepare')
             ->icon('heroicon-o-cog-6-tooth')
             ->visible(fn ($record): bool => in_array($record->status, [ReleaseStatus::Draft, ReleaseStatus::Prepared]))
-            ->disabled(fn ($record): bool => $record->isPreparing() || $record->isDeploying())
+            ->disabled(fn ($record): bool => FileUtility::hasSufficientDiskspace() && ($record->isPreparing() || $record->isDeploying()))
             ->action(function ($record): void {
                 $providerVersionId = $record->provider_version_id ?? null;
 

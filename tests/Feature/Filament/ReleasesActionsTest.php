@@ -160,7 +160,7 @@ class ReleasesActionsTest extends TestCase
         $release = $release->refresh();
 
         Livewire::test(EditRelease::class, ['record' => $release->getKey()])
-            ->callAction('deploy')
+            ->callAction('deploy', ['confirmation' => 'DEPLOY NOW'])
             ->assertHasNoActionErrors();
 
         // Assert release state updated

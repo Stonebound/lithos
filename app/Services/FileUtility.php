@@ -55,4 +55,14 @@ class FileUtility
 
         return in_array($ext, ['jar', 'zip', 'png', 'jpg', 'jpeg', 'gif', 'bin', 'exe', 'dll', 'so']);
     }
+
+    public static function hasSufficientDiskspace(): bool
+    {
+        // local disk should have more than 10gb free
+        $disk = Storage::disk('local');
+        $path = $disk->path('/');
+        $freeBytes = disk_free_space($path);
+
+        return $freeBytes !== false && $freeBytes > 10 * 1024 * 1024 * 1024;
+    }
 }

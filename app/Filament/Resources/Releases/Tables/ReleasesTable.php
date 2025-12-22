@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Releases\Tables;
 
 use App\Filament\Resources\Releases\Actions\DeployAction;
+use App\Filament\Resources\Releases\Actions\DownloadBackupZipAction;
 use App\Filament\Resources\Releases\Actions\PrepareAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -41,6 +42,7 @@ class ReleasesTable
                 EditAction::make(),
                 PrepareAction::make(),
                 DeployAction::make(),
+                DownloadBackupZipAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

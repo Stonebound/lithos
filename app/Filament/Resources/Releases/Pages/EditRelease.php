@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Releases\Pages;
 
 use App\Filament\Resources\Releases\Actions\DeployAction;
+use App\Filament\Resources\Releases\Actions\DownloadBackupZipAction;
 use App\Filament\Resources\Releases\Actions\PrepareAction;
 use App\Filament\Resources\Releases\ReleaseResource;
 use Filament\Actions\DeleteAction;
@@ -19,6 +20,7 @@ class EditRelease extends EditRecord
         return [
             DeployAction::make(),
             PrepareAction::make(),
+            DownloadBackupZipAction::make(),
             DeleteAction::make(),
         ];
     }

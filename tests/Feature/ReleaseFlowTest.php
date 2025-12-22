@@ -107,7 +107,7 @@ class ReleaseFlowTest extends TestCase
             ->assertHasNoActionErrors();
 
         Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
-            ->callAction('deploy')
+            ->callAction('deploy', ['confirmation' => 'DEPLOY NOW'])
             ->assertHasNoActionErrors();
     }
 }

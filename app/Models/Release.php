@@ -19,7 +19,7 @@ class Release extends Model
     use HasFactory;
 
     protected $fillable = [
-        'server_id', 'version_label', 'provider_version_id', 'source_type', 'source_path', 'extracted_path', 'remote_snapshot_path', 'prepared_path', 'status', 'summary_json',
+        'server_id', 'version_label', 'provider_version_id', 'source_type', 'source_path', 'extracted_path', 'prepared_path', 'status', 'summary_json',
     ];
 
     protected function casts(): array

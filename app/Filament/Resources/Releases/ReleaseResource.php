@@ -130,7 +130,6 @@ class ReleaseResource extends Resource
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
-        $release->remote_snapshot_path = $remoteDir;
         self::log($release, "Remote snapshot completed to: {$remoteDir}");
 
         // Apply overrides

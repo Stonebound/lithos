@@ -52,6 +52,15 @@ class CleanupOldReleases implements ShouldQueue
     {
         $disk = Storage::disk('local');
         $prefix = 'modpacks/'.$releaseId;
+        $zipPath = $prefix.'/remote_snapshot.zip';
+
+        if ($disk->exists($zipPath)) {
+            try {
+                $disk->delete($zipPath);
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
 
         if (! $disk->exists($prefix)) {
             return;
