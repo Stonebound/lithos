@@ -12,6 +12,8 @@ class CreateRelease extends CreateRecord
 {
     protected static string $resource = ReleaseResource::class;
 
+    protected static bool $canCreateAnother = false;
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // If a zip was uploaded, set source_type/path accordingly.

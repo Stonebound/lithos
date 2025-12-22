@@ -9,12 +9,13 @@ use App\Models\Release;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class DeployRelease implements ShouldQueue
+class DeployRelease implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -23,6 +24,8 @@ class DeployRelease implements ShouldQueue
     public int $tries = 1;
 
     protected int $maxExceptions = 1;
+
+    public int $uniqueFor = 3600;
 
     public function __construct(
         public int $releaseId,
@@ -63,5 +66,10 @@ class DeployRelease implements ShouldQueue
             }
             throw $e;
         }
+    }
+
+    public function uniqueId(): string
+    {
+        return 'release:'.$this->releaseId.':deploy';
     }
 }

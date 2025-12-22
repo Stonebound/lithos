@@ -9,18 +9,21 @@ use App\Models\Release;
 use App\Models\User;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class PrepareRelease implements ShouldQueue
+class PrepareRelease implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 3600;
 
     public int $tries = 1;
+
+    public int $uniqueFor = 3600;
 
     protected int $maxExceptions = 1;
 
@@ -64,5 +67,10 @@ class PrepareRelease implements ShouldQueue
             }
             throw $e;
         }
+    }
+
+    public function uniqueId(): string
+    {
+        return 'release:'.$this->releaseId.':prepare';
     }
 }

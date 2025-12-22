@@ -236,4 +236,82 @@ class OverrideApplierTest extends TestCase
         $this->assertFalse($disk->exists('prepared/temp/cache.tmp'));
         $this->assertTrue($disk->exists('prepared/important.txt'));
     }
+
+    public function test_it_skips_binary_files_in_remote_copy(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+
+        // Setup source files
+        $disk->put('source/mods/mod1.jar', 'content');
+
+        // Setup remote files: one text, one binary
+        $disk->put('remote/config/test.txt', 'some text');
+        $disk->put('remote/config/binary.dat', "binary\0content");
+
+        $server = Server::factory()->create();
+        $release = Release::factory()->create(['server_id' => $server->id]);
+
+        // Rule that matches both
+        OverrideRule::create([
+            'name' => 'Match All Config',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'path_patterns' => ['config/*'],
+            'payload' => [
+                'search' => 'text',
+                'replace' => 'modified',
+            ],
+        ]);
+
+        $applier = new OverrideApplier;
+        $applier->apply($release, 'source', 'prepared', 'remote');
+
+        // test.txt should be copied and modified
+        $this->assertTrue($disk->exists('prepared/config/test.txt'));
+        $this->assertEquals('some modified', $disk->get('prepared/config/test.txt'));
+
+        // binary.dat should NOT be copied because it's binary
+        $this->assertFalse($disk->exists('prepared/config/binary.dat'));
+    }
+
+    public function test_it_skips_files_that_would_not_be_modified(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+
+        // Setup source files
+        $disk->put('source/mods/mod1.jar', 'content');
+
+        // Setup remote files: one that matches and changes, one that matches but doesn't change
+        $disk->put('remote/config/change.json', json_encode(['key' => 'old']));
+        $disk->put('remote/config/nochange.json', json_encode(['key' => 'new']));
+
+        $server = Server::factory()->create();
+        $release = Release::factory()->create(['server_id' => $server->id]);
+
+        // Rule to set key to new
+        OverrideRule::create([
+            'name' => 'Set Key to New',
+            'type' => 'json_patch',
+            'scope' => 'global',
+            'enabled' => true,
+            'path_patterns' => ['config/*.json'],
+            'payload' => [
+                'merge' => ['key' => 'new'],
+            ],
+        ]);
+
+        $applier = new OverrideApplier;
+        $applier->apply($release, 'source', 'prepared', 'remote');
+
+        // change.json should be copied and modified
+        $this->assertTrue($disk->exists('prepared/config/change.json'));
+        $data = json_decode($disk->get('prepared/config/change.json'), true);
+        $this->assertEquals('new', $data['key']);
+
+        // nochange.json should NOT be copied because it already has the value
+        $this->assertFalse($disk->exists('prepared/config/nochange.json'));
+    }
 }

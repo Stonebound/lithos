@@ -97,7 +97,7 @@ class DiffService
     protected function buildChange(Release $release, string $relative, FileChangeType $type, ?string $oldPath, ?string $newPath): FileChange
     {
         $disk = Storage::disk('local');
-        $isBinary = $this->isBinary($oldPath ?? $newPath ?? '') || $this->hasBinaryExtension($relative);
+        $isBinary = FileUtility::isBinary($oldPath ?? $newPath ?? '') || FileUtility::hasBinaryExtension($relative);
         $diffSummary = null;
 
         $sizeOld = $oldPath && $disk->exists($oldPath) ? $disk->size($oldPath) : null;
@@ -133,36 +133,6 @@ class DiffService
             'size_old' => $sizeOld,
             'size_new' => $sizeNew,
         ]);
-    }
-
-    protected function isBinary(string $path): bool
-    {
-        if ($path === '' || ! Storage::disk('local')->exists($path)) {
-            return false;
-        }
-
-        $fullPath = Storage::disk('local')->path($path);
-        $handle = fopen($fullPath, 'rb');
-        if (! $handle) {
-            return false;
-        }
-
-        $contents = fread($handle, 1024);
-        fclose($handle);
-
-        if ($contents === false) {
-            return true;
-        }
-
-        // Heuristic: if there are null bytes, treat as binary
-        return strpos($contents, "\0") !== false;
-    }
-
-    protected function hasBinaryExtension(string $relative): bool
-    {
-        $ext = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
-
-        return in_array($ext, ['jar', 'zip', 'png', 'jpg', 'jpeg', 'gif', 'bin']);
     }
 
     protected function generateDiffSummary(string $oldPath, string $newPath): string

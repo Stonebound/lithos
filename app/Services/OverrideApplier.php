@@ -145,6 +145,12 @@ class OverrideApplier
                 continue;
             }
 
+            if (in_array($rule->type, [OverrideRuleType::TextReplace, OverrideRuleType::JsonPatch, OverrideRuleType::YamlPatch])) {
+                if (FileUtility::isBinary($file) || ! $this->wouldModify($rule, $file)) {
+                    continue;
+                }
+            }
+
             if ($rule->type === OverrideRuleType::TextReplace) {
                 $this->applyTextReplace($file, $rule->payload);
             } elseif ($rule->type === OverrideRuleType::JsonPatch) {
@@ -193,6 +199,10 @@ class OverrideApplier
             }
 
             // Check if any content-modifying rule matches
+            if (FileUtility::isBinary($remoteFile)) {
+                continue;
+            }
+
             foreach ($rules as $rule) {
                 if (! in_array($rule->type, $contentModifyingTypes)) {
                     continue;
@@ -201,6 +211,10 @@ class OverrideApplier
                 $patterns = (array) ($rule->path_patterns ?? []);
                 foreach ($patterns as $pattern) {
                     if (fnmatch($pattern, $relative)) {
+                        if (! $this->wouldModify($rule, $remoteFile)) {
+                            continue;
+                        }
+
                         // Match found! Copy to prepared dir so it can be modified and kept.
                         $target = $preparedDir.'/'.$relative;
                         $targetParent = dirname($target);
@@ -293,5 +307,57 @@ class OverrideApplier
         }
 
         return $base;
+    }
+
+    protected function wouldModify(OverrideRule $rule, string $path): bool
+    {
+        $disk = Storage::disk('local');
+        $content = $disk->get($path);
+
+        if ($content === null || $content === false) {
+            return false;
+        }
+
+        if ($rule->type === OverrideRuleType::TextReplace) {
+            $search = $rule->payload['search'] ?? '';
+            $replace = $rule->payload['replace'] ?? '';
+            $regex = (bool) ($rule->payload['regex'] ?? false);
+
+            if ($regex) {
+                $newContent = preg_replace($search, $replace, $content);
+
+                return $newContent !== $content;
+            }
+
+            return str_contains($content, $search) && $search !== $replace;
+        }
+
+        if ($rule->type === OverrideRuleType::JsonPatch) {
+            $data = json_decode($content, true);
+            if (! is_array($data)) {
+                return false;
+            }
+            $merge = $rule->payload['merge'] ?? [];
+            $newData = $this->recursiveMerge($data, $merge);
+
+            return $data !== $newData;
+        }
+
+        if ($rule->type === OverrideRuleType::YamlPatch) {
+            try {
+                $data = Yaml::parse($content);
+            } catch (\Throwable $e) {
+                return false;
+            }
+            if (! is_array($data)) {
+                return false;
+            }
+            $merge = $rule->payload['merge'] ?? [];
+            $newData = $this->recursiveMerge($data, $merge);
+
+            return $data !== $newData;
+        }
+
+        return false;
     }
 }

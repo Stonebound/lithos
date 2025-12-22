@@ -1,21 +1,27 @@
 # Override Tracker App
 
-A Laravel 12 web app to ingest Minecraft modpack sources (zip or folder), snapshot a remote server via SFTP, compute diffs, apply override rules (text/JSON/YAML), and deploy changes with optional deletion of removed files. Built with Breeze + Livewire.
 
-## Features
-- Diff: Compare server snapshot vs new modpack, detect added/removed/modified files.
-- Overrides: Apply path-pattern rules with text replace, JSON merge, YAML merge.
-- Deploy: Sync changed files via SFTP, optionally remove files that were deleted.
-- Summary: Store structured release summaries for review.
-- UI + CLI: Auth-gated UI for non-CLI users; Artisan commands for automation.
+A Laravel 12 application for preparing and deploying Minecraft modpack releases by comparing a modpack against a remote server snapshot, applying override rules, and syncing changed files over SFTP. The app provides a Web UI (Livewire + Filament where used) and Artisan CLI commands for automation.
+
+**This README is current as of the workspace snapshot.**
+
+## Highlights
+- Compare a modpack (zip or extracted folder) with a server snapshot to detect added, removed, and modified files.
+- Apply override rules per-path using plain text replace, JSON merge, or YAML merge.
+- Deploy changed files via SFTP and optionally remove files deleted in the new modpack.
+- Keep structured release summaries for review and audit.
+
+## Stack & Versions
+- PHP: 8.3+
+- Laravel: 12
+- Filament: v4
 
 ## Prerequisites
-- PHP 8.3+
-- Composer 2+
-- Node.js 18+ and npm
-- SFTP-accessible Minecraft server (user/password or key)
+- Composer 2
+- Node.js 18+ and npm/yarn
+- SFTP-accessible remote server (password or key auth)
 
-## Setup
+## Quick Setup (developer)
 
 ```bash
 # From project root
@@ -23,93 +29,53 @@ composer install
 cp .env.example .env
 php artisan key:generate
 
-# Configure your DB in .env (SQLite/MySQL/Postgres)
-# For quick SQLite dev:
+# Configure your DB in .env (SQLite / MySQL / Postgres)
+# For quick SQLite development:
 # echo "DB_CONNECTION=sqlite" >> .env
 # touch database/database.sqlite
 
-php artisan migrate
+php artisan migrate --force
 npm install
+# For development with HMR
 npm run dev
+# To build production assets
+# npm run build
 ```
 
-Start the app:
+## Run the app locally
 
 ```bash
 php artisan serve
-```
-
-Then open http://localhost:8000 and log in.
-
-## Authentication
-- Breeze Livewire provides `/login`, `/register`, email verification, password reset.
-- Roles: `users.role` supports `viewer`, `maintainer`, `admin`.
-- Maintainers/Admins can deploy releases.
-
-Create a user quickly:
-
-```bash
-php artisan user:create --name="Maintainer" --email=you@example.com --password=secret --role=maintainer --no-interaction
+# then open http://localhost:8000
 ```
 
 ## Core Concepts
-- Servers: SFTP connection and base remote path; optional exclude glob patterns.
-- Releases: A modpack import tied to a server and version label; stores source/extracted/prepared paths and summary.
-- Override Rules: Path pattern + payload (text/JSON/YAML) applied during prepare.
-- File Changes: Added/removed/modified entries with checksums and optional text diff summary.
+- Server: SFTP connection details and the remote root path plus optional exclude globs.
+- Release: A prepared import of a modpack tied to a server and label; stores paths for `new`, `current`, and `prepared` states and a structured summary.
+- Override Rule: A rule that matches paths and applies a payload (text, JSON, or YAML) during prepare.
+- FileChange: Records added/removed/modified files, checksums, and optional text diffs for text files.
 
-## Using the UI
-1. Log in.
-2. Create a Server (host, port, username, auth type, remote root path, excludes).
-3. Add Override Rules if desired.
-4. Create a Release:
-	- Upload a modpack zip (or specify a source folder if supported).
-	- The app snapshots the server via SFTP, computes diffs, applies overrides.
-5. Review the diff summary on the releases page.
-6. Deploy (Maintainer/Admin only) — optional deletion of removed files.
+## Using the Web UI
+- Log in, create a `Server` with SFTP details and optional exclude patterns.
+- Add `Override Rules` to modify files during the prepare stage.
+- Create a `Release` by uploading a modpack zip (or pointing to an extracted folder if supported). The system snapshots the server, computes diffs, applies overrides, and stores the prepared release.
+- Review the release diff and deploy (Maintainer/Admin) — you can choose to delete files removed by the new modpack.
 
-## CLI Commands
-These exist for automation; check help for flags:
-
-```bash
-# Prepare and deploy
-php artisan modpack:prepare --server=SERVER_ID --zip=/path/to/modpack.zip --label=1.0.0 --no-interaction
-php artisan modpack:deploy --release=RELEASE_ID --delete-removed --no-interaction
-
-# Server configuration
-php artisan server:add --name=Prod --host=example.org --port=22 --username=mc --auth=password --password=secret --root=/srv/mc --no-interaction
-php artisan server:exclude --server=SERVER_ID --pattern="storage/**" --pattern="logs/**" --no-interaction
-
-# Overrides
-php artisan override:add --name="Enable feature" --pattern="config/*.json" --type=json --payload='{"feature":{"enabled":true}}' --no-interaction
-```
-
-List all commands:
-
-```bash
-php artisan list
-```
 
 ## Testing
-Run the feature and unit tests:
-
-```bash
-php artisan test
-```
-
-Filter by test name:
+- Run related tests (only changed/related tests to be quick):
 
 ```bash
 php artisan test --filter=ReleaseFlowTest
 ```
 
-## Troubleshooting
-- UI not updating: ensure `npm run dev` is running; or build with `npm run build`.
-- Vite asset error: run `npm run build` or start `npm run dev`.
-- SFTP issues: verify host/port/auth in the server record; key file readable; remote root path exists.
-- Permissions: ensure `storage/` and `bootstrap/cache/` are writable.
+# Developer Notes
 
-## Notes
-- Storage layout: modpacks live under `storage/app/modpacks/<release_id>/{new,current,prepared}`.
-- Large diffs: binary detection skips text summaries for JARs and other binaries.
-- JSON/YAML merges are shallow by default; adjust payloads accordingly.
+- Storage layout: modpack files are stored under `storage/app/modpacks/<release_id>/{new,current,prepared}`.
+- Follow project Pint formatting: run `vendor/bin/pint` before committing.
+
+Troubleshooting
+- UI not reflecting changes: ensure `npm run dev` is running or run `npm run build`.
+- SFTP connection issues: confirm host/port/credentials and that the key file (if used) is readable by the process.
+- Permission errors: ensure `storage/` and `bootstrap/cache/` are writable by the web user.
+

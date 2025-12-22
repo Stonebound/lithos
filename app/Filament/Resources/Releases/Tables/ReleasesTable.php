@@ -4,18 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases\Tables;
 
-use App\Enums\ReleaseStatus;
-use App\Jobs\DeployRelease;
-use App\Jobs\PrepareRelease;
-use Filament\Actions\Action;
+use App\Filament\Resources\Releases\Actions\DeployAction;
+use App\Filament\Resources\Releases\Actions\PrepareAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth;
 
 class ReleasesTable
 {
@@ -44,39 +39,8 @@ class ReleasesTable
             ])
             ->recordActions([
                 EditAction::make(),
-                Action::make('prepare')
-                    ->label('Prepare')
-                    ->icon(Heroicon::OutlinedCog6Tooth)
-                    ->visible(fn ($record): bool => in_array($record->status, [ReleaseStatus::Draft, ReleaseStatus::Prepared]))
-                    ->action(function ($record): void {
-                        $providerVersionId = $record->provider_version_id ?? null;
-
-                        PrepareRelease::dispatch(
-                            $record->id,
-                            $providerVersionId ? (string) $providerVersionId : null,
-                            Auth::id()
-                        );
-
-                        Notification::make()
-                            ->title('Preparation queued')
-                            ->body('The release preparation has been started in the background.')
-                            ->info()
-                            ->send();
-                    }),
-                Action::make('deploy')
-                    ->label('Deploy')
-                    ->icon(Heroicon::OutlinedRocketLaunch)
-                    ->visible(fn ($record): bool => $record->status === ReleaseStatus::Prepared)
-                    ->requiresConfirmation()
-                    ->action(function ($record): void {
-                        DeployRelease::dispatch($record->id, Auth::id());
-
-                        Notification::make()
-                            ->title('Deployment queued')
-                            ->body('The deployment has been started in the background.')
-                            ->info()
-                            ->send();
-                    }),
+                PrepareAction::make(),
+                DeployAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
