@@ -51,11 +51,14 @@ class FtbProvider implements ProviderInterface
             throw new \RuntimeException('FTB pack id or version id is missing.');
         }
 
+        $isArm64 = (false!==stripos(php_uname("m"), "aarch64") || false!== stripos(php_uname("m"),"arm64"));
+
         // Static Linux server installer URL per FTB API.
         $linuxUrl = sprintf(
-            'https://api.feed-the-beast.com/v1/modpacks/public/modpack/%s/%s/server/linux',
+            'https://api.feed-the-beast.com/v1/modpacks/public/modpack/%s/%s/server/%slinux',
             $providerPackId,
-            $versionId
+            $versionId,
+            $isArm64 ? 'arm/' : ''
         );
 
         $installerContents = $this->get($linuxUrl);
