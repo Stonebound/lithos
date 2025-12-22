@@ -15,7 +15,7 @@ class Server extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'host', 'port', 'username', 'auth_type', 'private_key_path', 'remote_root_path', 'include_paths',
+        'name', 'host', 'port', 'username', 'auth_type', 'password', 'private_key_path', 'remote_root_path', 'include_paths',
         'provider', 'provider_pack_id', 'provider_current_version', 'minecraft_version',
     ];
 
