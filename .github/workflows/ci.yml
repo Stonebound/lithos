@@ -33,4 +33,4 @@ jobs:
       - name: Run Pint (code style)
         run: vendor/bin/pint --test
       - name: Run PHPUnit tests
-        run: php artisan test --no-interaction
+        run: php artisan test
