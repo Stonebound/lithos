@@ -39,7 +39,7 @@ class SftpService
         }
 
         if (empty($includeTopDirs)) {
-            $includeTopDirs = ['config', 'mods', 'kubejs', 'defaultconfigs', 'resourcepacks'];
+            $includeTopDirs = ['config', 'mods', 'kubejs', 'defaultconfigs', 'datapacks', 'resourcepacks'];
         }
 
         $disk = Storage::disk('local');
@@ -125,7 +125,7 @@ class SftpService
         }
 
         if ($depth === 0 && empty($includeTopDirs)) {
-            $includeTopDirs = ['config', 'kubejs', 'resourcepacks', 'mods'];
+            $includeTopDirs = ['config', 'kubejs', 'datapacks', 'resourcepacks', 'mods'];
         }
 
         foreach ($remoteList as $name => $meta) {

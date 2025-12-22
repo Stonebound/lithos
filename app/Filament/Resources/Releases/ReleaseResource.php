@@ -13,6 +13,7 @@ use App\Filament\Resources\Releases\Schemas\ReleaseForm;
 use App\Filament\Resources\Releases\Tables\ReleasesTable;
 use App\Jobs\DeleteRemovedFiles;
 use App\Models\FileChange;
+use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
 use App\Services\DiffService;
@@ -99,7 +100,7 @@ class ReleaseResource extends Resource
         $sftp = $sftpSvc->connect($release->server);
 
         $include = $release->server->include_paths ?? [];
-        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+        $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
         $release->remote_snapshot_path = $remoteDir;

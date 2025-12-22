@@ -69,7 +69,8 @@ class ServerForm
                 TagsInput::make('include_paths')
                     ->label('Include folders')
                     ->placeholder('Add folders to include')
-                    ->suggestions(['config', 'mods', 'kubejs', 'defaultconfigs', 'resourcepacks'])
+                    ->suggestions(['config', 'mods', 'kubejs', 'datapacks', 'defaultconfigs', 'resourcepacks'])
+                    ->default(['config', 'mods', 'kubejs', 'datapacks', 'defaultconfigs', 'resourcepacks'])
                     ->helperText('Top-level folders to sync. Defaults to common modpack folders if left empty.')
                     ->columnSpanFull(),
                 Select::make('provider')

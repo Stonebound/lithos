@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\FileChangeType;
 use App\Models\FileChange;
+use App\Models\OverrideRule;
 use App\Models\Release;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,7 +17,7 @@ class DiffService
         $oldFiles = $this->mapFiles($oldDir);
         $newFiles = $this->mapFiles($newDir);
 
-        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+        $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
         $changes = [];
 
