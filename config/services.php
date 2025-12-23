@@ -41,4 +41,9 @@ return [
         'key' => env('CURSEFORGE_API_KEY'),
     ],
 
+    'pterodactyl' => [
+        'api_key' => env('PTERODACTYL_API_KEY'),
+        'base_url' => env('PTERODACTYL_BASE_URL'),
+    ],
+
 ];

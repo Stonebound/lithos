@@ -21,6 +21,7 @@ use App\Services\FileUtility;
 use App\Services\ModpackImporter;
 use App\Services\OverrideApplier;
 use App\Services\Providers\ProviderResolver;
+use App\Services\PterodactylService;
 use App\Services\SftpService;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -179,6 +180,19 @@ class ReleaseResource extends Resource
         }
 
         self::log($release, 'Starting deployment...');
+
+        // Stop server if Pterodactyl integration is configured
+        /** @var PterodactylService $pterodactylSvc */
+        $pterodactylSvc = app(PterodactylService::class);
+        if ($pterodactylSvc->isPterodactylServer($release->server)) {
+            self::log($release, 'Checking server status...');
+            if (! $pterodactylSvc->stopServerIfRunning($release->server)) {
+                self::log($release, 'Failed to stop server before deployment.', 'error');
+                throw new \RuntimeException('Failed to stop server before deployment.');
+            }
+            self::log($release, 'Server stopped successfully.');
+        }
+
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);

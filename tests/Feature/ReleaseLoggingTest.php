@@ -12,6 +12,7 @@ use App\Models\Server;
 use App\Models\User;
 use App\Services\ModpackImporter;
 use App\Services\OverrideApplier;
+use App\Services\PterodactylService;
 use App\Services\SftpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -105,6 +106,67 @@ class ReleaseLoggingTest extends TestCase
         $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
         $this->assertDatabaseHas('release_logs', ['message' => 'Uploaded: uploaded_file.txt']);
         $this->assertDatabaseHas('release_logs', ['message' => 'Deployment completed successfully.']);
+    }
+
+    public function test_deploy_release_checks_server_status_with_pterodactyl()
+    {
+        Storage::fake('local');
+        $server = Server::factory()->create();
+        $release = Release::factory()->create([
+            'server_id' => $server->id,
+            'prepared_path' => 'modpacks/1/prepared',
+            'status' => ReleaseStatus::Prepared,
+        ]);
+
+        $this->mock(SftpService::class, function ($mock) {
+            $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
+            $mock->shouldReceive('syncDirectory')->andReturnUsing(function ($s, $l, $r, $skip, $callback) {
+                $callback('upload', 'uploaded_file.txt');
+            });
+            $mock->shouldReceive('deleteRemoved');
+        });
+
+        $this->mock(PterodactylService::class, function ($mock) {
+            $mock->shouldReceive('isPterodactylServer')->andReturn(true);
+            $mock->shouldReceive('stopServerIfRunning')->andReturn(true);
+        });
+
+        ReleaseResource::deployRelease($release);
+
+        $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Checking server status...']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Server stopped successfully.']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Uploaded: uploaded_file.txt']);
+    }
+
+    public function test_deploy_release_skips_pterodactyl_when_not_configured()
+    {
+        Storage::fake('local');
+        $server = Server::factory()->create();
+        $release = Release::factory()->create([
+            'server_id' => $server->id,
+            'prepared_path' => 'modpacks/1/prepared',
+            'status' => ReleaseStatus::Prepared,
+        ]);
+
+        $this->mock(SftpService::class, function ($mock) {
+            $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
+            $mock->shouldReceive('syncDirectory')->andReturnUsing(function ($s, $l, $r, $skip, $callback) {
+                $callback('upload', 'uploaded_file.txt');
+            });
+            $mock->shouldReceive('deleteRemoved');
+        });
+
+        $this->mock(PterodactylService::class, function ($mock) {
+            $mock->shouldReceive('isPterodactylServer')->andReturn(false);
+            $mock->shouldNotReceive('stopServerIfRunning');
+        });
+
+        ReleaseResource::deployRelease($release);
+
+        $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
+        $this->assertDatabaseMissing('release_logs', ['message' => 'Checking server status...']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Uploaded: uploaded_file.txt']);
     }
 
     public function test_release_logs_component_shows_logs()
