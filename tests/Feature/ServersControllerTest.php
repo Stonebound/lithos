@@ -40,7 +40,7 @@ class ServersControllerTest extends TestCase
 
     public function test_create_server(): void
     {
-        $user = User::factory()->create(['role' => 'maintainer']);
+        $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
 
         Livewire::test(\App\Filament\Resources\Servers\Pages\CreateServer::class)
@@ -55,5 +55,14 @@ class ServersControllerTest extends TestCase
             ->assertHasNoActionErrors();
 
         $this->assertDatabaseHas('servers', ['name' => 'TestSrv', 'host' => 'host.local']);
+    }
+
+    public function test_maintainer_cant_create_server(): void
+    {
+        $user = User::factory()->create(['role' => 'maintainer']);
+        $this->actingAs($user);
+
+        Livewire::test(\App\Filament\Resources\Servers\Pages\CreateServer::class)
+            ->assertForbidden();
     }
 }

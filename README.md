@@ -3,8 +3,6 @@
 
 A Laravel 12 application for preparing and deploying Minecraft modpack releases by comparing a modpack against a remote server snapshot, applying override rules, and syncing changed files over SFTP. The app provides a simple Web UI for server admins.
 
-**This README is current as of the workspace snapshot.**
-
 ## Highlights
 - Compare a modpack (zip or extracted folder) with a server snapshot to detect added, removed, and modified files.
 - Apply override rules per-path using plain text replace, JSON merge, or YAML merge.
@@ -19,7 +17,7 @@ A Laravel 12 application for preparing and deploying Minecraft modpack releases 
 
 ## Prerequisites
 - Composer 2
-- Node.js 18+ and npm/yarn
+- for dev only: (Node.js 18+ and npm/yarn)
 - SFTP-accessible remote server (password or key auth)
 
 ## Quick Setup (developer)
@@ -30,11 +28,7 @@ composer install
 cp .env.example .env
 php artisan key:generate
 
-# Configure your DB in .env (SQLite / MySQL / Postgres)
-# For quick SQLite development:
-# echo "DB_CONNECTION=sqlite" >> .env
-# touch database/database.sqlite
-
+# default env will use sqlite
 php artisan migrate --force
 npm install
 # For development with HMR

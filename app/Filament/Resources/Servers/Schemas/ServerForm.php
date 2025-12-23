@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Servers\Schemas;
 
+use App\Models\User;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
 
 class ServerForm
 {
     public static function configure(Schema $schema): Schema
     {
+        /** @var User $user */
+        $user = Auth::user();
+
         return $schema
             ->components([
                 TextInput::make('name')
@@ -28,18 +33,21 @@ class ServerForm
                 TextInput::make('host')
                     ->label('Host')
                     ->required()
-                    ->default('5.9.78.56'),
+                    ->default('mc.stonebound.net')
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 TextInput::make('port')
                     ->label('SSH port')
                     ->required()
                     ->numeric()
                     ->minValue(1)
                     ->maxValue(65535)
-                    ->default(3875),
+                    ->default(3875)
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 TextInput::make('username')
                     ->label('SSH username')
                     ->required()
-                    ->placeholder('deployer'),
+                    ->placeholder('deployer')
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 Select::make('auth_type')
                     ->label('Authentication')
                     ->options([
@@ -49,23 +57,28 @@ class ServerForm
                     ->required()
                     ->default('password')
                     ->native(false)
-                    ->reactive(),
+                    ->reactive()
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 TextInput::make('password')
                     ->label('Password')
                     ->password()
                     ->revealable()
-                    ->required(fn ($get) => $get('auth_type') === 'password')
+                    ->required(fn ($get, $operation) => $operation === 'create' && $get('auth_type') === 'password')
                     ->hidden(fn ($get) => $get('auth_type') !== 'password')
-                    ->dehydrated(fn ($get, $state) => $get('auth_type') === 'password' && filled($state)),
+                    ->dehydrated(fn ($get, $state) => $get('auth_type') === 'password' && filled($state))
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 TextInput::make('private_key_path')
                     ->label('Private key path')
                     ->placeholder('/home/user/.ssh/id_rsa')
+                    ->required(fn ($get, $operation) => $operation === 'create' && $get('auth_type') === 'private_key')
                     ->hidden(fn ($get) => $get('auth_type') !== 'private_key')
-                    ->dehydrated(fn ($get) => $get('auth_type') === 'private_key'),
+                    ->dehydrated(fn ($get) => $get('auth_type') === 'private_key')
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 TextInput::make('remote_root_path')
                     ->label('Remote root path')
                     ->required()
-                    ->default('/'),
+                    ->default('/')
+                    ->disabled(fn ($operation) => $operation === 'update' && ! $user->isAdmin()),
                 TagsInput::make('include_paths')
                     ->label('Include folders')
                     ->placeholder('Add folders to include')
