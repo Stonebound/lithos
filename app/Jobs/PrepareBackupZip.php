@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Models\Release;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\FileUtility;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -38,6 +39,9 @@ class PrepareBackupZip implements ShouldBeUnique, ShouldQueue
         if (! $release) {
             return;
         }
+
+        $auditService = app(AuditService::class);
+        $auditService->log('create_zip', $release);
 
         $disk = Storage::disk('local');
         $backupDir = "modpacks/{$release->id}/remote";

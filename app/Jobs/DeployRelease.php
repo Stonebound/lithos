@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\Release;
 use App\Models\User;
+use App\Services\AuditService;
 use Filament\Notifications\Notification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -39,6 +40,9 @@ class DeployRelease implements ShouldBeUnique, ShouldQueue
         if (! $release || ! $release->prepared_path) {
             return;
         }
+
+        $auditService = app(AuditService::class);
+        $auditService->log('deploy', $release);
 
         try {
             ReleaseResource::deployRelease($release);

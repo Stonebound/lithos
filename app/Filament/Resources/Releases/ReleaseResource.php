@@ -34,6 +34,8 @@ class ReleaseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRocketLaunch;
 
+    protected static ?int $navigationSort = 10;
+
     public static function log(Release $release, string $message, string $level = 'info'): void
     {
         $release->logs()->create([
