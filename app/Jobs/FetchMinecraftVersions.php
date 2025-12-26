@@ -18,6 +18,7 @@ class FetchMinecraftVersions implements ShouldQueue
      */
     public function handle(): void
     {
+        /** @var \Illuminate\Http\Client\Response $response */
         $response = Http::get('https://launchermeta.mojang.com/mc/game/version_manifest.json');
 
         if ($response->failed()) {

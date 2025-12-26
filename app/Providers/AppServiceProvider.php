@@ -7,10 +7,12 @@ namespace App\Providers;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
+use App\Models\SrvRecord;
 use App\Models\User;
 use App\Observers\OverrideRuleObserver;
 use App\Observers\ReleaseObserver;
 use App\Observers\ServerObserver;
+use App\Observers\SrvRecordObserver;
 use App\Observers\UserObserver;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,5 +35,6 @@ class AppServiceProvider extends ServiceProvider
         Release::observe(ReleaseObserver::class);
         User::observe(UserObserver::class);
         OverrideRule::observe(OverrideRuleObserver::class);
+        SrvRecord::observe(SrvRecordObserver::class);
     }
 }

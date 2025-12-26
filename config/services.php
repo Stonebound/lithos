@@ -46,4 +46,15 @@ return [
         'base_url' => env('PTERODACTYL_BASE_URL'),
     ],
 
+    'bunnynet' => [
+        'api_key' => env('BUNNYNET_API_KEY'),
+        'base_domain' => env('BUNNYNET_BASE_DOMAIN', 'stonebound.net'),
+        'additional_subdomains' => ['la'], // array of additional prefixes
+        'ttl' => env('BUNNYNET_TTL', 300),
+        'base_target' => env('BUNNYNET_BASE_TARGET', 'mc.stonebound.net'),
+        'additional_targets' => [
+            'la' => env('BUNNYNET_LA_TARGET', 'la.stonebound.net'),
+        ],
+    ],
+
 ];
