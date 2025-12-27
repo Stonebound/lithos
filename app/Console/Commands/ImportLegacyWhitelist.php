@@ -28,7 +28,7 @@ class ImportLegacyWhitelist extends Command
             $this->info('Removed and truncated.');
         }
 
-        $path = $this->option('whitelistPath');
+        $path = $this->argument('whitelistPath');
 
         if (! $path || ! file_exists($path)) {
             $this->error("Legacy whitelist.json not found at {$path}");
@@ -36,7 +36,7 @@ class ImportLegacyWhitelist extends Command
             return Command::FAILURE;
         }
 
-        $logDir = $this->option('logFolderPath');
+        $logDir = $this->argument('logFolderPath');
         if (! $logDir || ! is_dir($logDir)) {
             $this->error("Legacy log folder not found at {$logDir}");
 
