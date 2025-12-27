@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\WhitelistController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -22,4 +23,7 @@ Route::get('/releases/{release}/download-backup-zip', function ($releaseId) {
         'Content-Type' => 'application/zip',
         'Content-Disposition' => 'attachment; filename="remote_snapshot.zip"',
     ]);
-})->name('releases.download-backup-zip');
+})->middleware('auth')->name('releases.download-backup-zip');
+
+Route::get('/whitelist.json', [WhitelistController::class, 'json'])->name('whitelist.json');
+Route::get('/whitelist.txt', [WhitelistController::class, 'txt'])->name('whitelist.txt');

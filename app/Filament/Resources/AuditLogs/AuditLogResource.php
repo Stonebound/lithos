@@ -21,8 +21,6 @@ class AuditLogResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTableCells;
 
-    protected static ?string $recordTitleAttribute = 'action';
-
     protected static ?string $navigationLabel = 'Audit Logs';
 
     protected static ?string $modelLabel = 'Audit Log';

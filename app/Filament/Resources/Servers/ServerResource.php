@@ -24,6 +24,8 @@ class ServerResource extends Resource
 
     protected static ?int $navigationSort = 50;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
     public static function form(Schema $schema): Schema
     {
         return ServerForm::configure($schema);

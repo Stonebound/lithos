@@ -147,6 +147,44 @@ class AuditLoggingTest extends TestCase
         $this->assertEquals('viewer', $log->new_values['role']);
     }
 
+    public function test_whitelist_user_create_update_delete_logs_audit(): void
+    {
+        $user = User::factory()->create(['role' => 'viewer']);
+
+        $this->actingAs($user);
+
+        // Create
+        $wu = \App\Models\WhitelistUser::create([
+            'uuid' => '00000000-0000-0000-0000-000000000000',
+            'username' => 'notch',
+            'source' => 'test',
+        ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'model_type' => \App\Models\WhitelistUser::class,
+            'action' => 'create',
+        ]);
+
+        // Update
+        $wu->update(['username' => 'notch_new']);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'model_type' => \App\Models\WhitelistUser::class,
+            'action' => 'update',
+        ]);
+
+        // Delete
+        $wu->delete();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'model_type' => \App\Models\WhitelistUser::class,
+            'action' => 'delete',
+        ]);
+    }
+
     public function test_update_logs_only_changed_attributes(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

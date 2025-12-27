@@ -57,4 +57,12 @@ return [
         ],
     ],
 
+    'minecraft' => [
+        'api_user_prefix' => env('API_USER_PREFIX', 'DiscordBot'),
+        'endpoints' => [
+            'minecraft_profile_by_uuid_names' => env('MINECRAFT_PROFILE_BY_UUID_NAMES', 'https://api.minecraftservices.com/minecraft/profile/lookup/'),
+            'minecraft_profile_by_name' => env('MINECRAFT_PROFILE_BY_NAME', 'https://api.minecraftservices.com/minecraft/profile/lookup/name/'),
+        ],
+    ],
+
 ];
