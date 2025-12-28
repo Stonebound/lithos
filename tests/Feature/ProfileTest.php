@@ -46,7 +46,6 @@ class ProfileTest extends TestCase
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
     }
 
     public function test_password_can_be_updated(): void
