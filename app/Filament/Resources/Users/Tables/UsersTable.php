@@ -25,6 +25,10 @@ class UsersTable
                 TextColumn::make('role')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('last_logged_in_at')
+                    ->label('Last login')
+                    ->dateTime()
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

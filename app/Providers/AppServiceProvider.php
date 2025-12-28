@@ -16,6 +16,8 @@ use App\Observers\ServerObserver;
 use App\Observers\SrvRecordObserver;
 use App\Observers\UserObserver;
 use App\Observers\WhitelistUserObserver;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -39,5 +41,13 @@ class AppServiceProvider extends ServiceProvider
         WhitelistUser::observe(WhitelistUserObserver::class);
         OverrideRule::observe(OverrideRuleObserver::class);
         SrvRecord::observe(SrvRecordObserver::class);
+
+        Event::listen(Login::class, function (Login $event): void {
+            $user = $event->user;
+            if (is_object($user)) {
+                $user->last_logged_in_at = now();
+                $user->save();
+            }
+        });
     }
 }
