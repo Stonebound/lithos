@@ -142,7 +142,7 @@ class DiffService
         $a = explode("\n", rtrim($disk->get($oldPath), "\n"));
         $b = explode("\n", rtrim($disk->get($newPath), "\n"));
         $diff = [];
-        $max = max(count($a ?? []), count($b ?? []));
+        $max = max(count($a), count($b));
         for ($i = 0; $i < $max; $i++) {
             $lineA = $a[$i] ?? null;
             $lineB = $b[$i] ?? null;

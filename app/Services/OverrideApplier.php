@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
@@ -169,8 +170,10 @@ class OverrideApplier
     /**
      * Copy files from remote snapshot to prepared directory if they match a content-modifying rule
      * and aren't already in the prepared directory (from the modpack source).
+     *
+     * @param  Collection<int, OverrideRule>  $rules
      */
-    protected function copyMatchingRemoteFiles($rules, string $remoteDir, string $preparedDir, array $skipPatterns): void
+    protected function copyMatchingRemoteFiles(Collection $rules, string $remoteDir, string $preparedDir, array $skipPatterns): void
     {
         $disk = Storage::disk('local');
         $remoteFiles = $disk->allFiles($remoteDir);
@@ -256,7 +259,7 @@ class OverrideApplier
         $replace = $payload['replace'] ?? '';
         $regex = (bool) ($payload['regex'] ?? false);
         $content = Storage::disk('local')->get($path);
-        if ($content === false || $content === null) {
+        if (! $content) {
             return;
         }
         if ($regex) {
@@ -270,10 +273,10 @@ class OverrideApplier
     protected function applyJsonPatch(string $path, array $payload): void
     {
         $content = Storage::disk('local')->get($path);
-        if ($content === false || $content === null) {
+        if (! $content) {
             return;
         }
-        $data = json_decode($content, true);
+        $data = json_decode($content, true, flags: JSON_THROW_ON_ERROR);
         if (! is_array($data)) {
             return;
         }
@@ -286,7 +289,7 @@ class OverrideApplier
     protected function applyYamlPatch(string $path, array $payload): void
     {
         $content = Storage::disk('local')->get($path);
-        if ($content === false || $content === null) {
+        if (! $content) {
             return;
         }
         $data = Yaml::parse($content);
@@ -317,7 +320,7 @@ class OverrideApplier
         $disk = Storage::disk('local');
         $content = $disk->get($path);
 
-        if ($content === null || $content === false) {
+        if (! $content) {
             return false;
         }
 
@@ -336,7 +339,7 @@ class OverrideApplier
         }
 
         if ($rule->type === OverrideRuleType::JsonPatch) {
-            $data = json_decode($content, true);
+            $data = json_decode($content, true, flags: JSON_THROW_ON_ERROR);
             if (! is_array($data)) {
                 return false;
             }

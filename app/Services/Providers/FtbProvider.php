@@ -28,14 +28,14 @@ class FtbProvider implements ProviderInterface
             return [];
         }
         $body = $this->get('https://api.feed-the-beast.com/v1/modpacks/public/modpack/'.$providerPackId);
-        $json = json_decode($body, true) ?? [];
+        $json = json_decode($body, true, flags: JSON_THROW_ON_ERROR) ?? [];
         $versions = $json['versions'] ?? [];
 
         $out = [];
         foreach ($versions as $ver) {
             $out[] = [
                 'id' => $ver['id'] ?? $ver['version'] ?? null,
-                'name' => $ver['name'] ?? $ver['version'] ?? 'unknown',
+                'name' => (string) ($ver['name'] ?? $ver['version'] ?? 'unknown'),
             ];
         }
 

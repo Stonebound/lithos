@@ -32,7 +32,7 @@ class CleanupOldReleases implements ShouldQueue
             ->get();
 
         foreach ($releases as $release) {
-            if ($release->status && $release->status === ReleaseStatus::Deployed) {
+            if ($release->status === ReleaseStatus::Deployed) {
                 $this->cleanupReleaseFiles($release->id);
                 $release->delete();
             }

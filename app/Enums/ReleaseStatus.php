@@ -13,7 +13,7 @@ enum ReleaseStatus: string implements HasColor, HasLabel
     case Prepared = 'prepared';
     case Deployed = 'deployed';
 
-    public function getLabel(): ?string
+    public function getLabel(): string
     {
         return match ($this) {
             self::Draft => 'Draft',
@@ -22,7 +22,7 @@ enum ReleaseStatus: string implements HasColor, HasLabel
         };
     }
 
-    public function getColor(): string|array|null
+    public function getColor(): string
     {
         return match ($this) {
             self::Draft => 'secondary',

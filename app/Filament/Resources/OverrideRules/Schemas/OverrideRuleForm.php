@@ -136,7 +136,7 @@ class OverrideRuleForm
                             return [];
                         }
 
-                        return is_string($state) ? (json_decode($state ?: '[]', true) ?: []) : ($state ?? []);
+                        return is_string($state) ? (json_decode($state ?: '[]', true, flags: JSON_THROW_ON_ERROR) ?: []) : ($state ?? []);
                     })
                     ->hidden(fn ($get) => in_array($get('type'), [
                         OverrideRuleType::FileAdd,

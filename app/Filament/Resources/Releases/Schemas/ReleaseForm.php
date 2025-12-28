@@ -97,7 +97,7 @@ class ReleaseForm
                         $versions = $provider->listVersions($server->provider_pack_id);
                         $out = [];
                         foreach ($versions as $ver) {
-                            $out[(string) ($ver['id'] ?? '')] = (string) ($ver['name'] ?? $ver['id'] ?? '');
+                            $out[(string) $ver['id']] = $ver['name'];
                         }
 
                         return $out;
@@ -123,8 +123,8 @@ class ReleaseForm
                         }
                         $versions = $provider->listVersions($server->provider_pack_id);
                         foreach ($versions as $ver) {
-                            if ((string) ($ver['id'] ?? '') === (string) $state) {
-                                $set('version_label', (string) ($ver['name'] ?? $ver['id'] ?? ''));
+                            if ((string) $ver['id'] === (string) $state) {
+                                $set('version_label', $ver['name']);
                                 break;
                             }
                         }

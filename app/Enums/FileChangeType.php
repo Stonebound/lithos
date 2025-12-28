@@ -13,7 +13,7 @@ enum FileChangeType: string implements HasColor, HasLabel
     case Removed = 'removed';
     case Modified = 'modified';
 
-    public function getLabel(): ?string
+    public function getLabel(): string
     {
         return match ($this) {
             self::Added => 'Added',
@@ -22,7 +22,7 @@ enum FileChangeType: string implements HasColor, HasLabel
         };
     }
 
-    public function getColor(): string|array|null
+    public function getColor(): string
     {
         return match ($this) {
             self::Added => 'success',

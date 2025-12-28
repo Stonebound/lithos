@@ -44,7 +44,7 @@ class CurseForgeProvider implements ProviderInterface
         foreach ($data as $file) {
             $versions[] = [
                 'id' => $file['id'],
-                'name' => $file['displayName'] ?? ($file['fileName'] ?? (string) $file['id']),
+                'name' => (string) ($file['displayName'] ?? ($file['fileName'] ?? $file['id'])),
             ];
         }
 

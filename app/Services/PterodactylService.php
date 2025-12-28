@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Server;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -31,7 +31,7 @@ class PterodactylService
     /**
      * Check if a server is a Pterodactyl server based on username pattern.
      */
-    public function isPterodactylServer(Model $server): bool
+    public function isPterodactylServer(Server $server): bool
     {
         if (! $this->isGloballyConfigured()) {
             return false;
@@ -44,7 +44,7 @@ class PterodactylService
     /**
      * Extract server ID from username pattern.
      */
-    public function extractServerId(Model $server): ?string
+    public function extractServerId(Server $server): ?string
     {
         if (! $this->isPterodactylServer($server)) {
             return null;
@@ -60,7 +60,7 @@ class PterodactylService
     /**
      * Get the current server state.
      */
-    public function getServerState(Model $server): ?string
+    public function getServerState(Server $server): ?string
     {
         $serverId = $this->extractServerId($server);
         if (! $serverId || ! $this->isGloballyConfigured()) {
@@ -97,7 +97,7 @@ class PterodactylService
     /**
      * Stop the server if it's running.
      */
-    public function stopServerIfRunning(Model $server): bool
+    public function stopServerIfRunning(Server $server): bool
     {
         $serverId = $this->extractServerId($server);
         if (! $serverId || ! $this->isGloballyConfigured()) {
@@ -160,7 +160,7 @@ class PterodactylService
     /**
      * Wait for the server to reach a specific state.
      */
-    private function waitForServerState(Model $server, string $targetState, int $maxWaitSeconds = 60): bool
+    private function waitForServerState(Server $server, string $targetState, int $maxWaitSeconds = 60): bool
     {
         $serverId = $this->extractServerId($server);
         $startTime = time();

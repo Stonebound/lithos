@@ -44,7 +44,7 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(Login::class, function (Login $event): void {
             $user = $event->user;
-            if (is_object($user)) {
+            if ($user instanceof User) {
                 $user->last_logged_in_at = now();
                 $user->save();
             }
