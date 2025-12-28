@@ -46,6 +46,7 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->passwordReset()
             ->emailVerification()
+            ->emailChangeVerification()
             ->brandLogo('/site-logo.png')
             ->brandName('Stonebound Staff')
             ->favicon('/favicon.ico')
