@@ -8,7 +8,6 @@ use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
 
@@ -77,23 +76,11 @@ class OverrideApplier
             $overwrite = (bool) ($payload['overwrite'] ?? true);
             $files = $payload['files'] ?? [];
 
-            // Support legacy single-file rules
-            if (empty($files) && (isset($payload['from_upload']) || isset($payload['to']))) {
-                $files = [
-                    [
-                        'from_upload' => $payload['from_upload'] ?? '',
-                        'to' => $payload['to'] ?? '',
-                        'from_url' => $payload['from_url'] ?? '',
-                    ],
-                ];
-            }
-
             $disk = Storage::disk('local');
 
             foreach ($files as $fileData) {
                 $to = (string) ($fileData['to'] ?? '');
-                $fromUpload = (string) ($fileData['from_upload'] ?? '');
-                $fromUrl = (string) ($fileData['from_url'] ?? '');
+                $fromUpload = (string) (array_first($fileData['from_upload']) ?? '');
 
                 if ($to === '') {
                     continue;
@@ -112,16 +99,6 @@ class OverrideApplier
                 if ($fromUpload !== '') {
                     if (! $disk->copy($fromUpload, $target)) {
                         copy($disk->path($fromUpload), $disk->path($target));
-                    }
-
-                    continue;
-                }
-
-                if ($fromUrl !== '') {
-                    try {
-                        Http::timeout(300)->sink($disk->path($target))->get($fromUrl);
-                    } catch (\Throwable $e) {
-                        // ignore fetch errors
                     }
 
                     continue;

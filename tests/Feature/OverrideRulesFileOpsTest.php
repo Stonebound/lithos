@@ -76,11 +76,18 @@ class OverrideRulesFileOpsTest extends TestCase
 
         // Add file_add rule (global)
         OverrideRule::query()->create([
-            'name' => 'AddExtra', 'scope' => 'global',
-            'path_patterns' => ['*'], 'type' => 'file_add', 'payload' => [
-                'from_upload' => 'uploads/override-files/extra.jar',
-                'to' => 'mods/extra.jar', 'overwrite' => true,
-            ], 'enabled' => true, 'priority' => 10,
+            'name' => 'AddExtra',
+            'scope' => 'global',
+            'path_patterns' => ['*'],
+            'type' => 'file_add',
+            'payload' => [
+                'files' => [
+                    ['from_upload' => ['uploads/override-files/extra.jar'], 'to' => 'mods/extra.jar'],
+                ],
+                'overwrite' => true,
+            ],
+            'enabled' => true,
+            'priority' => 10,
         ]);
 
         // Add file_remove rule (global) targeting remove-me.jar

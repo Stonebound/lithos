@@ -68,7 +68,9 @@ class OverrideRuleForm
                     ->helperText('Glob pattern(s) that match files to change, e.g. config/**/*.json. Press enter after each pattern.')
                     ->default(['*'])
                     ->required(fn ($get) => $get('type') !== OverrideRuleType::FileAdd)
-                    ->hidden(fn ($get) => $get('type') === OverrideRuleType::FileAdd),
+                    ->hidden(fn ($get) => $get('type') === OverrideRuleType::FileAdd)
+                    ->dehydratedWhenHidden()
+                    ->dehydrateStateUsing(fn ($state, $get) => $get('type') === OverrideRuleType::FileAdd ? ['*'] : $state),
                 // Inputs for file_add
                 Repeater::make('add_files')
                     ->label('Files to add')
@@ -83,6 +85,16 @@ class OverrideRuleForm
                             ->placeholder('mods/Extra.jar')
                             ->required(),
                     ])
+                    ->afterStateHydrated(function ($set, $get) {
+                        $type = $get('type');
+                        $payload = $get('payload');
+                        if ($type === OverrideRuleType::FileAdd && is_array($payload)) {
+                            if (isset($payload['files'])) {
+                                $set('add_files', $payload['files']);
+                            }
+                            $set('overwrite', $payload['overwrite'] ?? true);
+                        }
+                    })
                     ->columns(2)
                     ->hidden(fn ($get) => $get('type') !== OverrideRuleType::FileAdd)
                     ->required(fn ($get) => $get('type') === OverrideRuleType::FileAdd),
@@ -100,23 +112,6 @@ class OverrideRuleForm
                     ->language(Language::Json)
                     ->columnSpanFull()
                     ->helperText('Examples: text_replace: {"search":"...","replace":"...","regex":false} • json/yaml_patch: {"merge":{...}}')
-                    ->afterStateHydrated(function ($state, $set, $get) {
-                        $type = $get('type');
-                        if ($type === OverrideRuleType::FileAdd && is_array($state)) {
-                            if (isset($state['files'])) {
-                                $set('add_files', $state['files']);
-                            } elseif (isset($state['from_upload']) || isset($state['to'])) {
-                                // Migrate old single file rule to repeater
-                                $set('add_files', [
-                                    [
-                                        'from_upload' => $state['from_upload'] ?? '',
-                                        'to' => $state['to'] ?? '',
-                                    ],
-                                ]);
-                            }
-                            $set('overwrite', $state['overwrite'] ?? true);
-                        }
-                    })
                     ->formatStateUsing(fn ($state, $get) => in_array($get('type'), [
                         OverrideRuleType::FileAdd,
                         OverrideRuleType::FileRemove,
@@ -138,6 +133,7 @@ class OverrideRuleForm
 
                         return is_string($state) ? (json_decode($state ?: '[]', true, flags: JSON_THROW_ON_ERROR) ?: []) : ($state ?? []);
                     })
+                    ->dehydratedWhenHidden()
                     ->hidden(fn ($get) => in_array($get('type'), [
                         OverrideRuleType::FileAdd,
                         OverrideRuleType::FileRemove,

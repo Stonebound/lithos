@@ -16,7 +16,7 @@ class OverrideApplierTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_applies_legacy_file_add_rule(): void
+    public function test_it_applies_file_add_rule(): void
     {
         Storage::fake('local');
         $disk = Storage::disk('local');
@@ -28,15 +28,16 @@ class OverrideApplierTest extends TestCase
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
 
-        $rule = OverrideRule::create([
+        OverrideRule::create([
             'name' => 'Add Mod',
             'type' => 'file_add',
             'scope' => 'global',
             'enabled' => true,
             'path_patterns' => ['*'],
             'payload' => [
-                'from_upload' => 'uploads/test.jar',
-                'to' => 'mods/test.jar',
+                'files' => [
+                    ['from_upload' => ['uploads/test.jar'], 'to' => 'mods/test.jar'],
+                ],
                 'overwrite' => true,
             ],
         ]);
@@ -70,8 +71,8 @@ class OverrideApplierTest extends TestCase
             'path_patterns' => ['*'],
             'payload' => [
                 'files' => [
-                    ['from_upload' => 'uploads/mod.jar', 'to' => 'mods/mod.jar'],
-                    ['from_upload' => 'uploads/config.cfg', 'to' => 'config/extra.cfg'],
+                    ['from_upload' => ['uploads/mod.jar'], 'to' => 'mods/mod.jar'],
+                    ['from_upload' => ['uploads/config.cfg'], 'to' => 'config/extra.cfg'],
                 ],
                 'overwrite' => true,
             ],
@@ -107,7 +108,7 @@ class OverrideApplierTest extends TestCase
             'path_patterns' => ['*'],
             'payload' => [
                 'files' => [
-                    ['from_upload' => 'uploads/new_config.json', 'to' => 'config.json'],
+                    ['from_upload' => ['uploads/new_config.json'], 'to' => 'config.json'],
                 ],
                 'overwrite' => false,
             ],
@@ -123,7 +124,7 @@ class OverrideApplierTest extends TestCase
         $rule->update([
             'payload' => [
                 'files' => [
-                    ['from_upload' => 'uploads/new_config.json', 'to' => 'config.json'],
+                    ['from_upload' => ['uploads/new_config.json'], 'to' => 'config.json'],
                 ],
                 'overwrite' => true,
             ],
