@@ -22,12 +22,8 @@ class OverrideApplier
 
         $rules = OverrideRule::query()
             ->where(function ($q) use ($release) {
-                $q->where(function ($q2) use ($release) {
-                    $q2->where('scope', 'global')
-                        ->where(function ($q) use ($release) {
-                            $q->whereNull('minecraft_version')
-                                ->orWhere('minecraft_version', $release->server->minecraft_version);
-                        });
+                $q->where(function ($q2) {
+                    $q2->where('scope', 'global');
                 })
                     ->orWhere(function ($q2) use ($release) {
                         $q2->where('scope', 'server')
@@ -38,7 +34,19 @@ class OverrideApplier
             })
             ->where('enabled', true)
             ->orderByDesc('priority')
-            ->get();
+            ->get()
+            ->filter(function (OverrideRule $rule) use ($release) {
+                $versionPattern = $rule->minecraft_version;
+                if ($versionPattern === null || $versionPattern === '') {
+                    return true;
+                }
+
+                if ($release->server->minecraft_version === null) {
+                    return false;
+                }
+
+                return preg_match('/^'.$versionPattern.'$/', $release->server->minecraft_version) === 1;
+            });
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 

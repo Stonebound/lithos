@@ -43,13 +43,11 @@ class OverrideRuleForm
                     ->required()
                     ->default('global')
                     ->reactive(),
-                Select::make('minecraft_version')
+                TextInput::make('minecraft_version')
                     ->label('Minecraft version')
-                    ->relationship('minecraftVersion', 'id')
-                    ->searchable()
-                    ->preload()
-                    ->native(false)
-                    ->helperText('Optional: only apply this rule to servers with this Minecraft version.')
+                    ->helperText('Optional: only apply this rule to servers with this Minecraft version. Uses regular expressions, so make sure to escape dots.')
+                    ->prefix('/^')
+                    ->suffix('$/')
                     ->visible(fn ($get) => $get('scope') === 'global'),
                 Select::make('servers')
                     ->label('Servers')

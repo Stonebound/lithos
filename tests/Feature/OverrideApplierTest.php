@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\MinecraftVersion;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
@@ -15,6 +16,114 @@ use Tests\TestCase;
 class OverrideApplierTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_it_applies_minecraft_version_specific_rules_only_when_matching(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+
+        $disk->put('source/config.txt', 'Hello Old');
+
+        $matchingVersion = MinecraftVersion::create([
+            'id' => '1.20.1',
+            'release_time' => now(),
+        ]);
+
+        $server = Server::factory()->create([
+            'minecraft_version' => $matchingVersion->id,
+        ]);
+
+        $release = Release::factory()->create(['server_id' => $server->id]);
+
+        OverrideRule::create([
+            'name' => 'Non-matching rule should not apply',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'priority' => 100,
+            'minecraft_version' => '1\.21\.0',
+            'path_patterns' => ['config.txt'],
+            'payload' => [
+                'search' => 'Hello',
+                'replace' => 'WRONG',
+            ],
+        ]);
+
+        OverrideRule::create([
+            'name' => 'Matching rule applies',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'priority' => 0,
+            'minecraft_version' => '1\.20\..',
+            'path_patterns' => ['config.txt'],
+            'payload' => [
+                'search' => 'Old',
+                'replace' => 'New',
+            ],
+        ]);
+
+        $applier = new OverrideApplier;
+        $applier->apply($release, 'source', 'prepared');
+
+        $this->assertTrue($disk->exists('prepared/config.txt'));
+        $this->assertEquals('Hello New', $disk->get('prepared/config.txt'));
+        $this->assertStringNotContainsString('WRONG', $disk->get('prepared/config.txt'));
+    }
+
+    public function test_it_only_applies_unscoped_rules_when_server_has_no_minecraft_version(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+
+        $disk->put('source/config.txt', 'Hello Old');
+
+        $version = MinecraftVersion::create([
+            'id' => '1.20.1',
+            'release_time' => now(),
+        ]);
+
+        $server = Server::factory()->create([
+            'minecraft_version' => null,
+        ]);
+
+        $release = Release::factory()->create(['server_id' => $server->id]);
+
+        OverrideRule::create([
+            'name' => 'Version-scoped rule should not apply',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'priority' => 100,
+            'minecraft_version' => $version->id,
+            'path_patterns' => ['config.txt'],
+            'payload' => [
+                'search' => 'Old',
+                'replace' => 'WRONG',
+            ],
+        ]);
+
+        OverrideRule::create([
+            'name' => 'Unscoped rule applies',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'priority' => 0,
+            'minecraft_version' => null,
+            'path_patterns' => ['config.txt'],
+            'payload' => [
+                'search' => 'Old',
+                'replace' => 'New',
+            ],
+        ]);
+
+        $applier = new OverrideApplier;
+        $applier->apply($release, 'source', 'prepared');
+
+        $this->assertTrue($disk->exists('prepared/config.txt'));
+        $this->assertEquals('Hello New', $disk->get('prepared/config.txt'));
+        $this->assertStringNotContainsString('WRONG', $disk->get('prepared/config.txt'));
+    }
 
     public function test_it_applies_file_add_rule(): void
     {
