@@ -20,7 +20,7 @@ class CreateRelease extends CreateRecord
         $zip = $data['source_zip'] ?? null;
         if ($zip) {
             $data['source_type'] = 'zip';
-            // FileUpload stores a relative path like 'uploads/filename.zip' on 'local' disk.
+            // FileUpload stores a relative path like 'override-files/filename.zip' on 'local' disk.
             $data['source_path'] = Storage::disk('local')->path($zip);
             unset($data['source_zip']);
         }

@@ -62,9 +62,9 @@ class FtbProvider implements ProviderInterface
         );
 
         $installerContents = $this->get($linuxUrl);
-        Storage::disk('local')->makeDirectory('uploads');
+        Storage::disk('local')->makeDirectory('tmp');
         // Name must include pack and version to drive installer behavior.
-        $relativePath = 'uploads/'.sprintf('serverinstall_%s_%s', $providerPackId, $versionId);
+        $relativePath = 'tmp/'.sprintf('serverinstall_%s_%s', $providerPackId, $versionId);
         Storage::disk('local')->put($relativePath, $installerContents);
         $installerPath = Storage::disk('local')->path($relativePath);
 

@@ -134,7 +134,7 @@ class ReleaseForm
                     ->helperText('Upload a modpack .zip when not using a provider.')
                     ->acceptedFileTypes(['application/zip', '.zip'])
                     ->disk('local')
-                    ->directory('uploads')
+                    ->directory('tmp')
                     ->hidden(fn ($get) => $get('source_mode') !== 'upload'),
             ]);
     }

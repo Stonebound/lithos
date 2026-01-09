@@ -89,8 +89,8 @@ class CurseForgeProvider implements ProviderInterface
             throw new \RuntimeException('CurseForge download failed (status '.$download->status().')');
         }
         $contents = (string) $download->body();
-        $relativePath = 'uploads/'.uniqid('cf_', true).'.zip';
-        Storage::disk('local')->makeDirectory('uploads');
+        $relativePath = 'tmp/'.uniqid('cf_', true).'.zip';
+        Storage::disk('local')->makeDirectory('tmp');
         Storage::disk('local')->put($relativePath, $contents);
         $path = Storage::disk('local')->path($relativePath);
 

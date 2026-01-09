@@ -42,7 +42,6 @@ class CleanupOldReleases implements ShouldQueue
         $this->cleanupStoragePrefixes('modpacks', $cutoff);
         $this->cleanupStoragePrefixes('servers', $cutoff);
         $this->cleanupStoragePrefixes('tmp', $cutoff);
-        $this->cleanupStoragePrefixes('uploads', $cutoff);
     }
 
     protected function cleanupReleaseFiles(int $releaseId): void

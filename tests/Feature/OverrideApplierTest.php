@@ -132,7 +132,7 @@ class OverrideApplierTest extends TestCase
 
         // Setup source files
         $disk->put('source/config.json', '{}');
-        $disk->put('uploads/test.jar', 'binary content');
+        $disk->put('override-files/test.jar', 'binary content');
 
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
@@ -145,7 +145,7 @@ class OverrideApplierTest extends TestCase
             'path_patterns' => ['*'],
             'payload' => [
                 'files' => [
-                    ['from_upload' => ['uploads/test.jar'], 'to' => 'mods/test.jar'],
+                    ['from_upload' => ['override-files/test.jar'], 'to' => 'mods/test.jar'],
                 ],
                 'overwrite' => true,
             ],
@@ -166,8 +166,8 @@ class OverrideApplierTest extends TestCase
 
         // Setup source files
         $disk->put('source/config.json', '{}');
-        $disk->put('uploads/mod.jar', 'mod content');
-        $disk->put('uploads/config.cfg', 'config content');
+        $disk->put('override-files/mod.jar', 'mod content');
+        $disk->put('override-files/config.cfg', 'config content');
 
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
@@ -180,8 +180,8 @@ class OverrideApplierTest extends TestCase
             'path_patterns' => ['*'],
             'payload' => [
                 'files' => [
-                    ['from_upload' => ['uploads/mod.jar'], 'to' => 'mods/mod.jar'],
-                    ['from_upload' => ['uploads/config.cfg'], 'to' => 'config/extra.cfg'],
+                    ['from_upload' => ['override-files/mod.jar'], 'to' => 'mods/mod.jar'],
+                    ['from_upload' => ['override-files/config.cfg'], 'to' => 'config/extra.cfg'],
                 ],
                 'overwrite' => true,
             ],
@@ -203,7 +203,7 @@ class OverrideApplierTest extends TestCase
 
         // Setup source files
         $disk->put('source/config.json', 'original');
-        $disk->put('uploads/new_config.json', 'new');
+        $disk->put('override-files/new_config.json', 'new');
 
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
@@ -217,7 +217,7 @@ class OverrideApplierTest extends TestCase
             'path_patterns' => ['*'],
             'payload' => [
                 'files' => [
-                    ['from_upload' => ['uploads/new_config.json'], 'to' => 'config.json'],
+                    ['from_upload' => ['override-files/new_config.json'], 'to' => 'config.json'],
                 ],
                 'overwrite' => false,
             ],
@@ -233,7 +233,7 @@ class OverrideApplierTest extends TestCase
         $rule->update([
             'payload' => [
                 'files' => [
-                    ['from_upload' => ['uploads/new_config.json'], 'to' => 'config.json'],
+                    ['from_upload' => ['override-files/new_config.json'], 'to' => 'config.json'],
                 ],
                 'overwrite' => true,
             ],

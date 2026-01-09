@@ -72,7 +72,7 @@ class OverrideRulesFileOpsTest extends TestCase
         $this->app->instance(\App\Services\SftpService::class, $fakeSftp);
 
         // Upload a file to add via rule
-        Storage::disk('local')->put('uploads/override-files/extra.jar', 'extra');
+        Storage::disk('local')->put('override-files/extra.jar', 'extra');
 
         // Add file_add rule (global)
         OverrideRule::query()->create([
@@ -82,7 +82,7 @@ class OverrideRulesFileOpsTest extends TestCase
             'type' => 'file_add',
             'payload' => [
                 'files' => [
-                    ['from_upload' => ['uploads/override-files/extra.jar'], 'to' => 'mods/extra.jar'],
+                    ['from_upload' => ['override-files/extra.jar'], 'to' => 'mods/extra.jar'],
                 ],
                 'overwrite' => true,
             ],

@@ -76,7 +76,7 @@ class OverrideRuleForm
                         FileUpload::make('from_upload')
                             ->label('File')
                             ->disk('local')
-                            ->directory('uploads/override-files')
+                            ->directory('override-files')
                             ->required(),
                         TextInput::make('to')
                             ->label('Destination path')
