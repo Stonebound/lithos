@@ -32,6 +32,28 @@ class WhitelistController extends Controller
         return response($content, 200, ['Content-Type' => 'text/plain']);
     }
 
+    public function apiCheck(string $uuid): JsonResponse
+    {
+        $uuid = trim($uuid);
+
+        if ($uuid === '') {
+            return response()->json(['status' => 'error', 'message' => 'No UUID provided!'], 422);
+        }
+
+        if (mb_strlen($uuid) !== 36 || ! preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $uuid)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid UUID format!'], 422);
+        }
+
+        $uuid = mb_strtolower($uuid);
+
+        $exists = WhitelistUser::where('uuid', $uuid)->exists();
+
+        return response()->json([
+            'status' => 'success',
+            'whitelisted' => $exists,
+        ]);
+    }
+
     public function apiAdd(Request $request, MinecraftApi $minecraftApi): JsonResponse
     {
         $headers = $request->headers;

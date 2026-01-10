@@ -79,7 +79,7 @@ class OverrideRuleForm
                             ->directory('override-files')
                             ->required(),
                         TextInput::make('to')
-                            ->label('Destination path')
+                            ->label('File name')
                             ->placeholder('mods/Extra.jar')
                             ->required(),
                     ])

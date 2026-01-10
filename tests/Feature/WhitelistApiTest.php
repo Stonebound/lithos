@@ -54,4 +54,34 @@ class WhitelistApiTest extends TestCase
 
         $this->assertDatabaseHas('whitelist_users', ['username' => 'charlie', 'uuid' => '33333333-3333-3333-3333-333333333333']);
     }
+
+    public function test_api_whitelist_check_endpoint(): void
+    {
+        // create a whitelist entry
+        WhitelistUser::create(['uuid' => '44444444-4444-4444-4444-444444444444', 'username' => 'dave', 'source' => 'test']);
+
+        // check for whitelisted UUID
+        $this->getJson('/api/whitelist/44444444-4444-4444-4444-444444444444')
+            ->assertOk()
+            ->assertJsonFragment([
+                'status' => 'success',
+                'whitelisted' => true,
+            ]);
+
+        // check for non-whitelisted UUID
+        $this->getJson('/api/whitelist/55555555-5555-5555-5555-555555555555')
+            ->assertOk()
+            ->assertJsonFragment([
+                'status' => 'success',
+                'whitelisted' => false,
+            ]);
+
+        // check with invalid UUID format
+        $this->getJson('/api/whitelist/invalid-uuid-format')
+            ->assertStatus(422)
+            ->assertJsonFragment([
+                'status' => 'error',
+                'message' => 'Invalid UUID format!',
+            ]);
+    }
 }
