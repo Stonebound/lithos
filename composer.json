@@ -7,7 +7,7 @@
     "license": "Apache-2.0",
     "require": {
         "php": "^8.2",
-        "filament/filament": "^4.3",
+        "filament/filament": "^5.1",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "phpseclib/phpseclib": "^3.0",
