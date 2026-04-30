@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Server;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -68,7 +69,7 @@ class PterodactylService
         }
 
         try {
-            /** @var \Illuminate\Http\Client\Response $response */
+            /** @var Response $response */
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer '.$this->apiKey,
                 'Accept' => 'Application/vnd.pterodactyl.v1+json',
@@ -110,7 +111,7 @@ class PterodactylService
             Log::info('Server is running, stopping before deployment', ['server_id' => $serverId]);
 
             try {
-                /** @var \Illuminate\Http\Client\Response $response */
+                /** @var Response $response */
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer '.$this->apiKey,
                     'Accept' => 'Application/vnd.pterodactyl.v1+json',

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\ServerFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -20,17 +23,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $password
  * @property string|null $private_key_path
  * @property string $remote_root_path
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property string|null $provider
  * @property string|null $provider_pack_id
  * @property string|null $provider_current_version
  * @property array<array-key, mixed>|null $include_paths
  * @property string|null $minecraft_version
- * @property-read \App\Models\MinecraftVersion|null $minecraftVersion
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OverrideRule> $overrideRules
+ * @property-read MinecraftVersion|null $minecraftVersion
+ * @property-read Collection<int, OverrideRule> $overrideRules
  * @property-read int|null $override_rules_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Release> $releases
+ * @property-read Collection<int, Release> $releases
  * @property-read int|null $releases_count
  *
  * @method static \Database\Factories\ServerFactory factory($count = null, $state = [])
@@ -58,7 +61,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Server extends Model
 {
-    /** @use HasFactory<\Database\Factories\ServerFactory> */
+    /** @use HasFactory<ServerFactory> */
     use HasFactory;
 
     protected $fillable = [

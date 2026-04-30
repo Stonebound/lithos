@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\User;
 use Filament\Auth\Pages\EditProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -65,7 +66,7 @@ class ProfileTest extends TestCase
             ->call('save')
             ->assertHasNoFormErrors();
 
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('new-password', $user->refresh()->password));
+        $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
     }
 
     public function test_user_can_delete_their_account(): void

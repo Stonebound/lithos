@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\OverrideRuleType;
+use App\Models\OverrideRule;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Override;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\OverrideRuleFactory>
+ * @extends Factory<\App\Models\OverrideRuleFactory>
  */
 class OverrideRuleFactory extends Factory
 {
@@ -33,7 +34,7 @@ class OverrideRuleFactory extends Factory
     /**
      * Indicate that the override rule is of type TextReplace.
      *
-     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\OverrideRule>
+     * @return Factory<OverrideRule>
      */
     public function textReplace(): Factory
     {
@@ -48,7 +49,7 @@ class OverrideRuleFactory extends Factory
     /**
      * Indicate that the override rule is of type FileSkip.
      *
-     * @return \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\OverrideRule>
+     * @return Factory<OverrideRule>
      */
     public function fileSkip(array $patterns): Factory
     {

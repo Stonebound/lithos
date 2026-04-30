@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class MinecraftApi
@@ -14,7 +15,7 @@ class MinecraftApi
         $endpoint = rtrim($endpoint, '/').'/'.$name;
 
         try {
-            /** @var \Illuminate\Http\Client\Response $response */
+            /** @var Response $response */
             $response = Http::acceptJson()->get($endpoint);
             if ($response->successful()) {
                 $json = $response->json();

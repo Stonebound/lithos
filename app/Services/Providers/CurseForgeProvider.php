@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Providers;
 
 use App\Models\Server;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,7 +18,7 @@ class CurseForgeProvider implements ProviderInterface
 
     protected function get(string $url, array $headers = []): string
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = Http::withHeaders($headers)->timeout(30)->get($url);
         if ($response->status() >= 400) {
             throw new \RuntimeException('HTTP GET failed: '.$url.' (status '.$response->status().')');
@@ -32,7 +33,7 @@ class CurseForgeProvider implements ProviderInterface
             return [];
         }
 
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = Http::withHeaders(['x-api-key' => (string) $this->apiKey()])
             ->timeout(30)
             ->get('https://api.curseforge.com/v1/mods/'.$providerPackId.'/files');
@@ -57,7 +58,7 @@ class CurseForgeProvider implements ProviderInterface
             throw new \RuntimeException('CurseForge API key not configured.');
         }
 
-        /** @var \Illuminate\Http\Client\Response $fileResponse */
+        /** @var Response $fileResponse */
         $fileResponse = Http::withHeaders(['x-api-key' => (string) $this->apiKey()])
             ->timeout(30)
             ->get('https://api.curseforge.com/v1/mods/'.$providerPackId.'/files/'.$versionId);
@@ -71,7 +72,7 @@ class CurseForgeProvider implements ProviderInterface
 
         // Prefer the server pack additional file when available
         if ($serverPackId) {
-            /** @var \Illuminate\Http\Client\Response $serverPackResp */
+            /** @var Response $serverPackResp */
             $serverPackResp = Http::withHeaders(['x-api-key' => (string) $this->apiKey()])
                 ->timeout(30)
                 ->get('https://api.curseforge.com/v1/mods/'.$providerPackId.'/files/'.$serverPackId);
@@ -83,7 +84,7 @@ class CurseForgeProvider implements ProviderInterface
         if (! $downloadUrl) {
             throw new \RuntimeException('Download URL missing for CurseForge file.');
         }
-        /** @var \Illuminate\Http\Client\Response $download */
+        /** @var Response $download */
         $download = Http::timeout(120)->get($downloadUrl);
         if ($download->status() >= 400) {
             throw new \RuntimeException('CurseForge download failed (status '.$download->status().')');

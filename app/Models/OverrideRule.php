@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OverrideRuleType;
+use Database\Factories\OverrideRuleFactory;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -20,11 +23,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property array<array-key, mixed>|null $payload
  * @property int $enabled
  * @property int $priority
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property string|null $minecraft_version
- * @property-read \App\Models\MinecraftVersion|null $minecraftVersion
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Server> $servers
+ * @property-read MinecraftVersion|null $minecraftVersion
+ * @property-read Collection<int, Server> $servers
  * @property-read int|null $servers_count
  *
  * @method static \Database\Factories\OverrideRuleFactory factory($count = null, $state = [])
@@ -48,7 +51,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class OverrideRule extends Model
 {
-    /** @use HasFactory<\Database\Factories\OverrideRuleFactory> */
+    /** @use HasFactory<OverrideRuleFactory> */
     use HasFactory;
 
     protected $fillable = [

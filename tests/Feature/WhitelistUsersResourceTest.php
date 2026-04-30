@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\WhitelistUsers\Pages\CreateWhitelistUser;
 use App\Models\User;
+use App\Models\WhitelistUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -23,7 +25,7 @@ class WhitelistUsersResourceTest extends TestCase
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
-        \App\Models\WhitelistUser::query()->create([
+        WhitelistUser::query()->create([
             'username' => 'Steve',
             'uuid' => '8667ba71-b85a-4004-af54-457a9734eed7',
             'source' => 'manual',
@@ -38,7 +40,7 @@ class WhitelistUsersResourceTest extends TestCase
         $admin = User::factory()->create(['role' => 'viewer']);
         $this->actingAs($admin);
 
-        Livewire::test(\App\Filament\Resources\WhitelistUsers\Pages\CreateWhitelistUser::class)
+        Livewire::test(CreateWhitelistUser::class)
             ->set('data.username', 'notch')
             ->call('create')
             ->assertHasNoActionErrors();

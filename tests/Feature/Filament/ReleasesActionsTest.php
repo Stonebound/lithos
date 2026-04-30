@@ -17,6 +17,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use phpseclib3\Net\SFTP;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -91,7 +92,7 @@ class ReleasesActionsTest extends TestCase
 
             public function fetchSource($providerPackId, $versionId): array
             {
-                return ['type' => 'dir', 'path' => \Illuminate\Support\Facades\Storage::disk('local')->path('test-source')];
+                return ['type' => 'dir', 'path' => Storage::disk('local')->path('test-source')];
             }
         };
 
@@ -109,12 +110,12 @@ class ReleasesActionsTest extends TestCase
         // Fake SFTP service to copy remote to local and no-op deploy
         $fakeSftp = new class extends SftpService
         {
-            public function connect(Server $server): \phpseclib3\Net\SFTP
+            public function connect(Server $server): SFTP
             {
-                return new \phpseclib3\Net\SFTP('localhost');
+                return new SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
+            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
@@ -144,7 +145,7 @@ class ReleasesActionsTest extends TestCase
                 }
             }
 
-            public function syncDirectory(\phpseclib3\Net\SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
+            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
             {
                 // no-op for test
             }

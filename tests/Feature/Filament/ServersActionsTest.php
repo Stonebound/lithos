@@ -12,6 +12,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use phpseclib3\Net\SFTP;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -45,12 +46,12 @@ class ServersActionsTest extends TestCase
 
         $fakeSftp = new class extends SftpService
         {
-            public function connect(Server $server): \phpseclib3\Net\SFTP
+            public function connect(Server $server): SFTP
             {
-                return new \phpseclib3\Net\SFTP('localhost');
+                return new SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
+            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');

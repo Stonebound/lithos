@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Servers\Pages\CreateServer;
 use App\Models\Server;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,7 +44,7 @@ class ServersControllerTest extends TestCase
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
 
-        Livewire::test(\App\Filament\Resources\Servers\Pages\CreateServer::class)
+        Livewire::test(CreateServer::class)
             ->set('data.name', 'TestSrv')
             ->set('data.host', 'host.local')
             ->set('data.port', 22)
@@ -62,7 +63,7 @@ class ServersControllerTest extends TestCase
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
-        Livewire::test(\App\Filament\Resources\Servers\Pages\CreateServer::class)
+        Livewire::test(CreateServer::class)
             ->assertForbidden();
     }
 }

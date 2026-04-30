@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Filament;
 
 use App\Enums\ReleaseStatus;
+use App\Filament\Resources\Releases\Pages\EditRelease;
 use App\Jobs\PrepareBackupZip;
 use App\Models\Release;
 use App\Models\Server;
@@ -38,7 +39,7 @@ class DownloadBackupZipActionTest extends TestCase
         Storage::disk('local')->makeDirectory("modpacks/{$release->id}/remote");
         Storage::disk('local')->put("modpacks/{$release->id}/remote/foo.txt", 'bar');
 
-        Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->id])
+        Livewire::test(EditRelease::class, ['record' => $release->id])
             ->assertActionVisible('download-backup-zip')
             ->callAction('download-backup-zip')
             ->assertHasNoActionErrors();
@@ -62,7 +63,7 @@ class DownloadBackupZipActionTest extends TestCase
         $zipPath = "modpacks/{$release->id}/remote_snapshot.zip";
         Storage::disk('local')->put($zipPath, 'zipdata');
 
-        Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->id])
+        Livewire::test(EditRelease::class, ['record' => $release->id])
             ->assertActionVisible('download-backup-zip')
             ->callAction('download-backup-zip')
             ->assertHasNoActionErrors();

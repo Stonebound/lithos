@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\OverrideRuleType;
+use App\Filament\Resources\OverrideRules\Pages\CreateOverrideRule;
 use App\Models\OverrideRule;
 use App\Models\User;
 use Filament\Forms\Components\Repeater;
@@ -32,7 +33,7 @@ class OverrideRulesControllerTest extends TestCase
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
-        Livewire::test(\App\Filament\Resources\OverrideRules\Pages\CreateOverrideRule::class)
+        Livewire::test(CreateOverrideRule::class)
             ->set('data.name', 'EnableFeature')
             ->set('data.description', 'Turn on feature')
             ->set('data.scope', 'global')
@@ -59,7 +60,7 @@ class OverrideRulesControllerTest extends TestCase
 
         Repeater::fake();
 
-        Livewire::test(\App\Filament\Resources\OverrideRules\Pages\CreateOverrideRule::class)
+        Livewire::test(CreateOverrideRule::class)
             ->fillForm([
                 'name' => 'AddExtraFile',
                 'description' => 'Add an extra mod file',

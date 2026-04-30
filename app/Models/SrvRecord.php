@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\SrvRecordFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property string $subdomain
  * @property int $port
  * @property array<array-key, mixed>|null $record_ids
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  *
  * @method static \Database\Factories\SrvRecordFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SrvRecord newModelQuery()
@@ -30,7 +32,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class SrvRecord extends Model
 {
-    /** @use HasFactory<\Database\Factories\SrvRecordFactory> */
+    /** @use HasFactory<SrvRecordFactory> */
     use HasFactory;
 
     protected $fillable = [

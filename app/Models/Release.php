@@ -7,11 +7,14 @@ namespace App\Models;
 use App\Enums\ReleaseStatus;
 use App\Jobs\DeployRelease;
 use App\Jobs\PrepareRelease;
+use Database\Factories\ReleaseFactory;
 use Illuminate\Bus\UniqueLock;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -24,14 +27,14 @@ use Illuminate\Support\Facades\Cache;
  * @property string|null $prepared_path
  * @property ReleaseStatus $status
  * @property array<array-key, mixed>|null $summary_json
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property string|null $provider_version_id
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\FileChange> $fileChanges
+ * @property-read Collection<int, FileChange> $fileChanges
  * @property-read int|null $file_changes_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ReleaseLog> $logs
+ * @property-read Collection<int, ReleaseLog> $logs
  * @property-read int|null $logs_count
- * @property-read \App\Models\Server $server
+ * @property-read Server $server
  *
  * @method static \Database\Factories\ReleaseFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Release newModelQuery()
@@ -54,7 +57,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class Release extends Model
 {
-    /** @use HasFactory<\Database\Factories\ReleaseFactory> */
+    /** @use HasFactory<ReleaseFactory> */
     use HasFactory;
 
     protected $fillable = [

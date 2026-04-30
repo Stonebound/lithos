@@ -8,8 +8,10 @@ use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
+use App\Services\SftpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use phpseclib3\Net\SFTP;
 use Tests\TestCase;
 
 class OverrideRulesFileOpsTest extends TestCase
@@ -45,14 +47,14 @@ class OverrideRulesFileOpsTest extends TestCase
         ]);
 
         // Fake SFTP service to avoid real connections and create snapshot by copying local source
-        $fakeSftp = new class extends \App\Services\SftpService
+        $fakeSftp = new class extends SftpService
         {
-            public function connect(Server $server): \phpseclib3\Net\SFTP
+            public function connect(Server $server): SFTP
             {
-                return new \phpseclib3\Net\SFTP('localhost');
+                return new SFTP('localhost');
             }
 
-            public function downloadDirectory(\phpseclib3\Net\SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
+            public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
             {
                 $root = Storage::disk('local')->path('');
                 $remoteRel = ltrim(str_replace($root, '', $remotePath), '/');
@@ -69,7 +71,7 @@ class OverrideRulesFileOpsTest extends TestCase
                 }
             }
         };
-        $this->app->instance(\App\Services\SftpService::class, $fakeSftp);
+        $this->app->instance(SftpService::class, $fakeSftp);
 
         // Upload a file to add via rule
         Storage::disk('local')->put('override-files/extra.jar', 'extra');

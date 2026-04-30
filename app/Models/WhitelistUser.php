@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Services\MinecraftApi;
+use Database\Factories\WhitelistUserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property string $uuid
  * @property string|null $username
  * @property string|null $source
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  *
  * @method static \Database\Factories\WhitelistUserFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WhitelistUser newModelQuery()
@@ -31,7 +33,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class WhitelistUser extends Model
 {
-    /** @use HasFactory<\Database\Factories\WhitelistUserFactory> */
+    /** @use HasFactory<WhitelistUserFactory> */
     use HasFactory;
 
     protected $fillable = [

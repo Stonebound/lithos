@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Jobs\CleanupOldReleases;
+use App\Jobs\FetchMinecraftVersions;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,8 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })
-    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
-        $schedule->job(new \App\Jobs\FetchMinecraftVersions)->daily();
-        $schedule->job(new \App\Jobs\CleanupOldReleases)->daily();
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->job(new FetchMinecraftVersions)->daily();
+        $schedule->job(new CleanupOldReleases)->daily();
     })
     ->create();

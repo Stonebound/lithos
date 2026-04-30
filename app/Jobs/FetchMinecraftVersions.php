@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Models\MinecraftVersion;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class FetchMinecraftVersions implements ShouldQueue
@@ -18,7 +19,7 @@ class FetchMinecraftVersions implements ShouldQueue
      */
     public function handle(): void
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = Http::get('https://launchermeta.mojang.com/mc/game/version_manifest.json');
 
         if ($response->failed()) {

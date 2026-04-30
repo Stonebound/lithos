@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases\Schemas;
 
+use App\Enums\ReleaseStatus;
+use App\Livewire\Releases\ReleaseLogs;
 use App\Models\Server;
 use App\Services\Providers\ProviderResolver;
 use Filament\Forms\Components\FileUpload;
@@ -23,12 +25,12 @@ class ReleaseForm
                 Section::make('Logs')
                     ->description('Live output from the preparation and deployment jobs.')
                     ->schema([
-                        Livewire::make(\App\Livewire\Releases\ReleaseLogs::class, fn ($record) => ['release' => $record])
+                        Livewire::make(ReleaseLogs::class, fn ($record) => ['release' => $record])
                             ->hidden(fn ($record) => ! $record),
                     ])
                     ->columnSpanFull()
                     ->collapsible()
-                    ->collapsed(fn ($record) => $record?->status === \App\Enums\ReleaseStatus::Deployed),
+                    ->collapsed(fn ($record) => $record?->status === ReleaseStatus::Deployed),
                 Select::make('server_id')
                     ->label('Target server')
                     ->relationship('server', 'name')

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\ReleaseStatus;
 use App\Models\AuditLog;
 use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
 use App\Models\User;
+use App\Models\WhitelistUser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -49,7 +51,7 @@ class AuditLoggingTest extends TestCase
         Release::create([
             'server_id' => $server->id,
             'name' => 'Test Release',
-            'status' => \App\Enums\ReleaseStatus::Draft,
+            'status' => ReleaseStatus::Draft,
             'source_type' => 'dir',
             'source_path' => '/tmp/test',
         ]);
@@ -154,7 +156,7 @@ class AuditLoggingTest extends TestCase
         $this->actingAs($user);
 
         // Create
-        $wu = \App\Models\WhitelistUser::create([
+        $wu = WhitelistUser::create([
             'uuid' => '00000000-0000-0000-0000-000000000000',
             'username' => 'notch',
             'source' => 'test',
@@ -162,7 +164,7 @@ class AuditLoggingTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'user_id' => $user->id,
-            'model_type' => \App\Models\WhitelistUser::class,
+            'model_type' => WhitelistUser::class,
             'action' => 'create',
         ]);
 
@@ -171,7 +173,7 @@ class AuditLoggingTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'user_id' => $user->id,
-            'model_type' => \App\Models\WhitelistUser::class,
+            'model_type' => WhitelistUser::class,
             'action' => 'update',
         ]);
 
@@ -180,7 +182,7 @@ class AuditLoggingTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'user_id' => $user->id,
-            'model_type' => \App\Models\WhitelistUser::class,
+            'model_type' => WhitelistUser::class,
             'action' => 'delete',
         ]);
     }

@@ -196,7 +196,7 @@ class ReleaseResource extends Resource
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($release->server);
-        $skipPatterns = \App\Models\OverrideRule::getSkipPatternsForServer($release->server);
+        $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
         self::log($release, 'Syncing directory to remote...');
         $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns, function ($action, $file) use ($release) {

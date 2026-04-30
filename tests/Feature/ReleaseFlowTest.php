@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Releases\Pages\CreateRelease;
+use App\Filament\Resources\Releases\Pages\EditRelease;
+use App\Models\Release;
 use App\Models\Server;
 use App\Models\User;
 use App\Services\SftpService;
@@ -91,7 +94,7 @@ class ReleaseFlowTest extends TestCase
         $uploaded = UploadedFile::fake()->createWithContent('modpack.zip', $zipBytes);
 
         Filament::setCurrentPanel('admin');
-        Livewire::test(\App\Filament\Resources\Releases\Pages\CreateRelease::class)
+        Livewire::test(CreateRelease::class)
             ->fillForm([
                 'server_id' => $server->id,
                 'version_label' => '1.0.0',
@@ -101,12 +104,12 @@ class ReleaseFlowTest extends TestCase
             ->assertHasNoActionErrors();
 
         // Prepare and deploy via Filament actions on the edit page
-        $release = \App\Models\Release::query()->latest()->first();
-        Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
+        $release = Release::query()->latest()->first();
+        Livewire::test(EditRelease::class, ['record' => $release->getKey()])
             ->callAction('prepare')
             ->assertHasNoActionErrors();
 
-        Livewire::test(\App\Filament\Resources\Releases\Pages\EditRelease::class, ['record' => $release->getKey()])
+        Livewire::test(EditRelease::class, ['record' => $release->getKey()])
             ->callAction('deploy', ['confirmation' => 'DEPLOY NOW'])
             ->assertHasNoActionErrors();
     }

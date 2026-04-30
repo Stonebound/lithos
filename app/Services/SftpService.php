@@ -115,7 +115,7 @@ class SftpService
                 $onProgress('upload', $relative);
             }
 
-            if (! $sftp->put($remoteFile, $disk->path($file), \phpseclib3\Net\SFTP::SOURCE_LOCAL_FILE)) {
+            if (! $sftp->put($remoteFile, $disk->path($file), SFTP::SOURCE_LOCAL_FILE)) {
                 throw new \RuntimeException('Failed to upload: '.$remoteFile);
             }
         }

@@ -69,7 +69,7 @@ class CleanupOldReleases implements ShouldQueue
         }
     }
 
-    protected function cleanupStoragePrefixes(string $base, \Illuminate\Support\Carbon $cutoff): void
+    protected function cleanupStoragePrefixes(string $base, Carbon $cutoff): void
     {
         $disk = Storage::disk('local');
 

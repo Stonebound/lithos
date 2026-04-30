@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Providers;
 
 use App\Models\Server;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
@@ -13,7 +14,7 @@ class FtbProvider implements ProviderInterface
 {
     protected function get(string $url): string
     {
-        /** @var \Illuminate\Http\Client\Response $response */
+        /** @var Response $response */
         $response = Http::timeout(30)->get($url);
         if ($response->status() >= 400) {
             throw new \RuntimeException('HTTP GET failed: '.$url.' (status '.$response->status().')');

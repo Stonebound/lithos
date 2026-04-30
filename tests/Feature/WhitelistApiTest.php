@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\WhitelistUser;
+use App\Services\MinecraftApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -40,7 +41,7 @@ class WhitelistApiTest extends TestCase
         $this->withHeaders(['api-key' => 'wrong'])->postJson('/api/whitelist', ['username' => 'charlie'])->assertStatus(401);
 
         // correct key should create an audit log and whitelist user (service resolves uuid using MinecraftApi; we'll stub it)
-        $this->mock(\App\Services\MinecraftApi::class, function ($mock) {
+        $this->mock(MinecraftApi::class, function ($mock) {
             $mock->shouldReceive('uuidForName')->with('charlie')->andReturn('33333333-3333-3333-3333-333333333333');
         });
 
