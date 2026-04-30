@@ -12,10 +12,10 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use ToshY\BunnyNet\BunnyHttpClient;
 use ToshY\BunnyNet\Enum\Endpoint;
-use ToshY\BunnyNet\Model\Api\Base\DnsZone\AddDnsRecord;
-use ToshY\BunnyNet\Model\Api\Base\DnsZone\DeleteDnsRecord;
-use ToshY\BunnyNet\Model\Api\Base\DnsZone\ListDnsZones;
-use ToshY\BunnyNet\Model\Api\Base\DnsZone\UpdateDnsRecord;
+use ToshY\BunnyNet\Model\Api\Core\DnsZone\AddDnsRecord;
+use ToshY\BunnyNet\Model\Api\Core\DnsZone\DeleteDnsRecord;
+use ToshY\BunnyNet\Model\Api\Core\DnsZone\ListDnsZones;
+use ToshY\BunnyNet\Model\Api\Core\DnsZone\UpdateDnsRecord;
 
 class ManageSrvRecords implements ShouldQueue
 {
