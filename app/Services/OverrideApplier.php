@@ -240,18 +240,25 @@ class OverrideApplier
 
     protected function applyTextReplace(string $path, array $payload): void
     {
-        $search = $payload['search'] ?? '';
-        $replace = $payload['replace'] ?? '';
-        $regex = (bool) ($payload['regex'] ?? false);
+        $payloads = $this->normalizeTextReplacePayloads($payload);
         $content = Storage::disk('local')->get($path);
+
         if (! $content) {
             return;
         }
-        if ($regex) {
-            $content = preg_replace($search, $replace, $content) ?? $content;
-        } else {
-            $content = str_replace($search, $replace, $content);
+
+        foreach ($payloads as $singlePayload) {
+            $search = $singlePayload['search'] ?? '';
+            $replace = $singlePayload['replace'] ?? '';
+            $regex = (bool) ($singlePayload['regex'] ?? false);
+
+            if ($regex) {
+                $content = preg_replace($search, $replace, $content) ?? $content;
+            } else {
+                $content = str_replace($search, $replace, $content);
+            }
         }
+
         Storage::disk('local')->put($path, $content);
     }
 
@@ -310,17 +317,23 @@ class OverrideApplier
         }
 
         if ($rule->type === OverrideRuleType::TextReplace) {
-            $search = $rule->payload['search'] ?? '';
-            $replace = $rule->payload['replace'] ?? '';
-            $regex = (bool) ($rule->payload['regex'] ?? false);
+            $newContent = $content;
 
-            if ($regex) {
-                $newContent = preg_replace($search, $replace, $content);
+            foreach ($this->normalizeTextReplacePayloads($rule->payload ?? []) as $payload) {
+                $search = $payload['search'] ?? '';
+                $replace = $payload['replace'] ?? '';
+                $regex = (bool) ($payload['regex'] ?? false);
 
-                return $newContent !== $content;
+                if ($regex) {
+                    $newContent = preg_replace($search, $replace, $newContent) ?? $newContent;
+
+                    continue;
+                }
+
+                $newContent = str_replace($search, $replace, $newContent);
             }
 
-            return str_contains($content, $search) && $search !== $replace;
+            return $newContent !== $content;
         }
 
         if ($rule->type === OverrideRuleType::JsonPatch) {
@@ -350,5 +363,23 @@ class OverrideApplier
         }
 
         return false;
+    }
+
+    /**
+     * @return array<int, array{search?: mixed, replace?: mixed, regex?: mixed}>
+     */
+    private function normalizeTextReplacePayloads(array $payload): array
+    {
+        if ($payload === []) {
+            return [];
+        }
+
+        $firstKey = array_key_first($payload);
+
+        if (is_int($firstKey)) {
+            return $payload;
+        }
+
+        return [$payload];
     }
 }

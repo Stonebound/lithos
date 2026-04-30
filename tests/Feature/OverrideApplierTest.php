@@ -317,6 +317,41 @@ class OverrideApplierTest extends TestCase
         $this->assertEquals('no change', $disk->get('prepared/other.txt'));
     }
 
+    public function test_it_applies_array_style_text_replace_payloads_in_sequence(): void
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+
+        $disk->put('source/config.txt', 'Hello Old World');
+
+        $server = Server::factory()->create();
+        $release = Release::factory()->create(['server_id' => $server->id]);
+
+        OverrideRule::create([
+            'name' => 'Apply Multiple Text Replacements',
+            'type' => 'text_replace',
+            'scope' => 'global',
+            'enabled' => true,
+            'path_patterns' => ['config.txt'],
+            'payload' => [
+                [
+                    'search' => 'Hello',
+                    'replace' => 'Goodbye',
+                ],
+                [
+                    'search' => 'Old',
+                    'replace' => 'New',
+                ],
+            ],
+        ]);
+
+        $applier = new OverrideApplier;
+        $applier->apply($release, 'source', 'prepared');
+
+        $this->assertTrue($disk->exists('prepared/config.txt'));
+        $this->assertEquals('Goodbye New World', $disk->get('prepared/config.txt'));
+    }
+
     public function test_it_handles_multiple_skip_patterns(): void
     {
         Storage::fake('local');
