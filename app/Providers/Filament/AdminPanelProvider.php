@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Services\PhpUploadLimit;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Filament\Forms\Components\FileUpload;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -26,6 +28,11 @@ class AdminPanelProvider extends PanelProvider
 {
     public function boot(): void
     {
+        FileUpload::configureUsing(function (FileUpload $fileUpload): void {
+            $fileUpload->maxSize(PhpUploadLimit::maxUploadKilobytes())
+                ->helperText('Maximum file size: '.PhpUploadLimit::humanReadableMaxUpload().'.');
+        });
+
         Table::configureUsing(function (Table $table): void {
             $table->paginationPageOptions([5, 10, 25, 50, 100])
                 ->defaultPaginationPageOption(50);

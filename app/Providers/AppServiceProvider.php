@@ -16,6 +16,7 @@ use App\Observers\ServerObserver;
 use App\Observers\SrvRecordObserver;
 use App\Observers\UserObserver;
 use App\Observers\WhitelistUserObserver;
+use App\Services\PhpUploadLimit;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -35,6 +36,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        config()->set('livewire.temporary_file_upload.rules', [
+            'required',
+            'file',
+            'max:'.PhpUploadLimit::maxUploadKilobytes(),
+        ]);
+
         Server::observe(ServerObserver::class);
         Release::observe(ReleaseObserver::class);
         User::observe(UserObserver::class);

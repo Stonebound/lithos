@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Releases\Schemas;
 use App\Enums\ReleaseStatus;
 use App\Livewire\Releases\ReleaseLogs;
 use App\Models\Server;
+use App\Services\PhpUploadLimit;
 use App\Services\Providers\ProviderResolver;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
@@ -133,7 +134,7 @@ class ReleaseForm
                     }),
                 FileUpload::make('source_zip')
                     ->label('Source zip')
-                    ->helperText('Upload a modpack .zip when not using a provider.')
+                    ->helperText('Upload a modpack .zip when not using a provider. Maximum file size: '.PhpUploadLimit::humanReadableMaxUpload().'.')
                     ->acceptedFileTypes(['application/zip', '.zip'])
                     ->disk('local')
                     ->directory('tmp')
