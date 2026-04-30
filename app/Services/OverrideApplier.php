@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
@@ -88,7 +89,7 @@ class OverrideApplier
 
             foreach ($files as $fileData) {
                 $to = (string) ($fileData['to'] ?? '');
-                $fromUpload = (string) (array_first($fileData['from_upload']) ?? '');
+                $fromUpload = (string) (Arr::first((array) ($fileData['from_upload'] ?? [])) ?? '');
 
                 if ($to === '') {
                     continue;

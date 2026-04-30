@@ -54,10 +54,16 @@ class AuditLog extends Model
         'user_agent',
     ];
 
-    protected $casts = [
-        'old_values' => 'array',
-        'new_values' => 'array',
-    ];
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'old_values' => 'array',
+            'new_values' => 'array',
+        ];
+    }
 
     /**
      * @return BelongsTo<User, $this>
