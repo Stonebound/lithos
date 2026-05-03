@@ -22,11 +22,20 @@ class WhitelistApiTest extends TestCase
 
         $this->get('/whitelist.json')
             ->assertOk()
+            ->assertHeaderMissing('Set-Cookie')
             ->assertJsonStructure([['uuid', 'name']])
             ->assertJsonFragment(['uuid' => '11111111-1111-1111-1111-111111111111', 'name' => 'alice'])
             ->assertJsonFragment(['uuid' => '22222222-2222-2222-2222-222222222222', 'name' => 'bob']);
 
-        $this->get('/whitelist.txt')->assertOk()->assertSee('11111111-1111-1111-1111-111111111111')->assertSee('22222222-2222-2222-2222-222222222222');
+        $this->assertDatabaseCount('sessions', 0);
+
+        $this->get('/whitelist.txt')
+            ->assertOk()
+            ->assertHeaderMissing('Set-Cookie')
+            ->assertSee('11111111-1111-1111-1111-111111111111')
+            ->assertSee('22222222-2222-2222-2222-222222222222');
+
+        $this->assertDatabaseCount('sessions', 0);
     }
 
     public function test_api_whitelist_requires_api_key_and_adds_user(): void
