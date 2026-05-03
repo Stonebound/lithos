@@ -65,4 +65,11 @@ return [
         ],
     ],
 
+    'sftp' => [
+        'parallel_upload_connections' => (int) env('SFTP_PARALLEL_UPLOAD_CONNECTIONS', 10),
+        'parallel_upload_driver' => env('SFTP_PARALLEL_UPLOAD_DRIVER', 'process'),
+        'progress_every_files' => (int) env('SFTP_PROGRESS_EVERY_FILES', 100),
+        'progress_every_seconds' => (float) env('SFTP_PROGRESS_EVERY_SECONDS', 3),
+    ],
+
 ];

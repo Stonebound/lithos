@@ -68,12 +68,38 @@ class ReleaseFlowTest extends TestCase
                 Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
             }
 
-            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
+            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null, ?array $relativeFiles = null): int
             {
                 // Assert prepared files exist
                 if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {
                     throw new \RuntimeException('Prepared path missing');
                 }
+
+                return count($relativeFiles ?? []);
+            }
+
+            public function syncServerDirectory(Server $server, string $localPath, string $remotePath, array $skipPatterns = [], ?int $releaseId = null): array
+            {
+                if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {
+                    throw new \RuntimeException('Prepared path missing');
+                }
+
+                return [
+                    'failed_workers' => 0,
+                    'connections' => 1,
+                    'uploaded_files' => 1,
+                    'workers' => [
+                        [
+                            'worker' => 1,
+                            'status' => 'success',
+                            'uploaded_files' => 1,
+                            'first_file' => 'config/game.json',
+                            'last_file' => 'config/game.json',
+                            'failed_file' => null,
+                            'error' => null,
+                        ],
+                    ],
+                ];
             }
         };
         $this->app->instance(SftpService::class, $fake);

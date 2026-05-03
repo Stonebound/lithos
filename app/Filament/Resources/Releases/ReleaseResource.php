@@ -195,13 +195,42 @@ class ReleaseResource extends Resource
 
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
-        $sftp = $sftpSvc->connect($release->server);
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
         self::log($release, 'Syncing directory to remote...');
-        $sftpSvc->syncDirectory($sftp, $release->prepared_path, $release->server->remote_root_path, $skipPatterns, function ($action, $file) use ($release) {
-            self::log($release, "Uploaded: {$file}");
-        });
+        $uploadSummary = $sftpSvc->syncServerDirectory($release->server, $release->prepared_path, $release->server->remote_root_path, $skipPatterns, $release->id);
+
+        foreach ($uploadSummary['workers'] as $workerSummary) {
+            $range = $workerSummary['first_file'] && $workerSummary['last_file']
+                ? ' ('.$workerSummary['first_file'].' -> '.$workerSummary['last_file'].')'
+                : '';
+
+            if ($workerSummary['status'] === 'failed') {
+                $failedFile = $workerSummary['failed_file'] ? ' at '.$workerSummary['failed_file'] : '';
+
+                self::log(
+                    $release,
+                    'Worker '.$workerSummary['worker'].' failed'.$failedFile.': '.$workerSummary['error'].$range,
+                    'error',
+                );
+
+                continue;
+            }
+
+            self::log(
+                $release,
+                'Worker '.$workerSummary['worker'].' uploaded '.$workerSummary['uploaded_files'].' files'.$range,
+            );
+        }
+
+        if ($uploadSummary['failed_workers'] > 0) {
+            throw new \RuntimeException('Upload failed in '.$uploadSummary['failed_workers'].' worker(s). Review release logs for details.');
+        }
+
+        self::log(
+            $release,
+            'Upload completed with '.$uploadSummary['uploaded_files'].' files across '.$uploadSummary['connections'].' connection(s).',
+        );
 
         self::log($release, 'Cleaning up removed files...');
         DeleteRemovedFiles::dispatchSync($release->id);

@@ -89,9 +89,22 @@ class ReleaseLoggingTest extends TestCase
 
         $this->mock(SftpService::class, function ($mock) {
             $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('syncDirectory')->andReturnUsing(function ($s, $l, $r, $skip, $callback) {
-                $callback('upload', 'uploaded_file.txt');
-            });
+            $mock->shouldReceive('syncServerDirectory')->andReturn([
+                'failed_workers' => 0,
+                'connections' => 1,
+                'uploaded_files' => 1,
+                'workers' => [
+                    [
+                        'worker' => 1,
+                        'status' => 'success',
+                        'uploaded_files' => 1,
+                        'first_file' => 'uploaded_file.txt',
+                        'last_file' => 'uploaded_file.txt',
+                        'failed_file' => null,
+                        'error' => null,
+                    ],
+                ],
+            ]);
             $mock->shouldReceive('deleteRemoved')->andReturnUsing(function ($s, $l, $r, $inc, $skip, $callback) {
                 $callback('delete', 'deleted_file.txt');
             });
@@ -104,7 +117,8 @@ class ReleaseLoggingTest extends TestCase
         ReleaseResource::deployRelease($release);
 
         $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
-        $this->assertDatabaseHas('release_logs', ['message' => 'Uploaded: uploaded_file.txt']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Worker 1 uploaded 1 files (uploaded_file.txt -> uploaded_file.txt)']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Upload completed with 1 files across 1 connection(s).']);
         $this->assertDatabaseHas('release_logs', ['message' => 'Deployment completed successfully.']);
     }
 
@@ -120,9 +134,22 @@ class ReleaseLoggingTest extends TestCase
 
         $this->mock(SftpService::class, function ($mock) {
             $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('syncDirectory')->andReturnUsing(function ($s, $l, $r, $skip, $callback) {
-                $callback('upload', 'uploaded_file.txt');
-            });
+            $mock->shouldReceive('syncServerDirectory')->andReturn([
+                'failed_workers' => 0,
+                'connections' => 1,
+                'uploaded_files' => 1,
+                'workers' => [
+                    [
+                        'worker' => 1,
+                        'status' => 'success',
+                        'uploaded_files' => 1,
+                        'first_file' => 'uploaded_file.txt',
+                        'last_file' => 'uploaded_file.txt',
+                        'failed_file' => null,
+                        'error' => null,
+                    ],
+                ],
+            ]);
             $mock->shouldReceive('deleteRemoved');
         });
 
@@ -136,7 +163,7 @@ class ReleaseLoggingTest extends TestCase
         $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
         $this->assertDatabaseHas('release_logs', ['message' => 'Checking server status...']);
         $this->assertDatabaseHas('release_logs', ['message' => 'Server stopped successfully.']);
-        $this->assertDatabaseHas('release_logs', ['message' => 'Uploaded: uploaded_file.txt']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Worker 1 uploaded 1 files (uploaded_file.txt -> uploaded_file.txt)']);
     }
 
     public function test_deploy_release_skips_pterodactyl_when_not_configured()
@@ -151,9 +178,22 @@ class ReleaseLoggingTest extends TestCase
 
         $this->mock(SftpService::class, function ($mock) {
             $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('syncDirectory')->andReturnUsing(function ($s, $l, $r, $skip, $callback) {
-                $callback('upload', 'uploaded_file.txt');
-            });
+            $mock->shouldReceive('syncServerDirectory')->andReturn([
+                'failed_workers' => 0,
+                'connections' => 1,
+                'uploaded_files' => 1,
+                'workers' => [
+                    [
+                        'worker' => 1,
+                        'status' => 'success',
+                        'uploaded_files' => 1,
+                        'first_file' => 'uploaded_file.txt',
+                        'last_file' => 'uploaded_file.txt',
+                        'failed_file' => null,
+                        'error' => null,
+                    ],
+                ],
+            ]);
             $mock->shouldReceive('deleteRemoved');
         });
 
@@ -166,7 +206,7 @@ class ReleaseLoggingTest extends TestCase
 
         $this->assertDatabaseHas('release_logs', ['message' => 'Starting deployment...']);
         $this->assertDatabaseMissing('release_logs', ['message' => 'Checking server status...']);
-        $this->assertDatabaseHas('release_logs', ['message' => 'Uploaded: uploaded_file.txt']);
+        $this->assertDatabaseHas('release_logs', ['message' => 'Worker 1 uploaded 1 files (uploaded_file.txt -> uploaded_file.txt)']);
     }
 
     public function test_release_logs_component_shows_logs()

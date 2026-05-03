@@ -145,9 +145,19 @@ class ReleasesActionsTest extends TestCase
                 }
             }
 
-            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null): void
+            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null, ?array $relativeFiles = null): int
             {
-                // no-op for test
+                return count($relativeFiles ?? []);
+            }
+
+            public function syncServerDirectory(Server $server, string $localPath, string $remotePath, array $skipPatterns = [], ?int $releaseId = null): array
+            {
+                return [
+                    'failed_workers' => 0,
+                    'connections' => 1,
+                    'uploaded_files' => 0,
+                    'workers' => [],
+                ];
             }
         };
         $this->app->instance(SftpService::class, $fakeSftp);

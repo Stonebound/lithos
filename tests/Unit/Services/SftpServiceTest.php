@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services;
 
+use App\Models\Release;
+use App\Models\Server;
 use App\Services\SftpService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use Mockery\MockInterface;
 use phpseclib3\Net\SFTP;
 use Tests\TestCase;
 
 class SftpServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function tearDown(): void
     {
         Mockery::close();
@@ -351,5 +358,206 @@ class SftpServiceTest extends TestCase
         $service->downloadDirectory($sftp, 'remote/path', 'local/path', ['123']);
 
         $this->assertTrue(true);
+    }
+
+    public function test_sync_directory_can_upload_a_selected_subset_of_files()
+    {
+        Storage::fake('local');
+        $disk = Storage::disk('local');
+
+        $disk->put('sync/config/keep.txt', 'keep');
+        $disk->put('sync/config/skip.txt', 'skip');
+        $disk->put('sync/mods/mod.jar', 'jar');
+
+        $sftp = Mockery::mock(SFTP::class);
+        $sftp->shouldReceive('is_dir')->with('remote/path/config')->once()->andReturn(false);
+        $sftp->shouldReceive('mkdir')->with('remote/path/config', -1, true)->once()->andReturn(true);
+        $sftp->shouldReceive('is_dir')->with('remote/path/mods')->once()->andReturn(true);
+
+        $sftp->shouldReceive('put')->with('remote/path/config/keep.txt', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->once()->andReturn(true);
+        $sftp->shouldReceive('put')->with('remote/path/mods/mod.jar', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->once()->andReturn(true);
+        $sftp->shouldReceive('put')->with('remote/path/config/skip.txt', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->never();
+
+        $service = new SftpService;
+
+        $uploadedFiles = $service->syncDirectory(
+            $sftp,
+            $disk->path('sync'),
+            'remote/path',
+            [],
+            null,
+            ['config/keep.txt', 'mods/mod.jar'],
+        );
+
+        $this->assertSame(2, $uploadedFiles);
+    }
+
+    public function test_sync_server_directory_uses_configured_parallel_connections()
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('sync/alpha.txt', 'alpha');
+        Storage::disk('local')->put('sync/beta.txt', 'beta');
+        Storage::disk('local')->put('sync/gamma.txt', 'gamma');
+
+        config()->set('services.sftp.parallel_upload_connections', 2);
+        config()->set('services.sftp.parallel_upload_driver', 'process');
+
+        Concurrency::shouldReceive('driver')->once()->with('process')->andReturnSelf();
+        Concurrency::shouldReceive('run')
+            ->once()
+            ->with(Mockery::on(fn (array $tasks): bool => count($tasks) === 2))
+            ->andReturn([
+                ['worker' => 2, 'status' => 'success', 'uploaded_files' => 1, 'first_file' => 'gamma.txt', 'last_file' => 'gamma.txt', 'failed_file' => null, 'error' => null],
+                ['worker' => 1, 'status' => 'success', 'uploaded_files' => 2, 'first_file' => 'alpha.txt', 'last_file' => 'beta.txt', 'failed_file' => null, 'error' => null],
+            ]);
+
+        $service = new SftpService;
+        $server = Server::factory()->make([
+            'auth_type' => 'password',
+            'password' => 'secret',
+        ]);
+
+        $summary = $service->syncServerDirectory($server, 'sync', 'remote/path');
+
+        $this->assertSame(2, $summary['connections']);
+        $this->assertSame(0, $summary['failed_workers']);
+        $this->assertSame(3, $summary['uploaded_files']);
+        $this->assertSame(1, $summary['workers'][0]['worker']);
+        $this->assertSame(2, $summary['workers'][1]['worker']);
+    }
+
+    public function test_sync_server_directory_passes_release_id_to_worker_uploads_for_process_driver()
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('sync/alpha.txt', 'alpha');
+        Storage::disk('local')->put('sync/beta.txt', 'beta');
+
+        config()->set('services.sftp.parallel_upload_connections', 2);
+        config()->set('services.sftp.parallel_upload_driver', 'process');
+
+        /** @var SftpService&MockInterface $service */
+        $service = Mockery::mock(SftpService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $this->app->instance(SftpService::class, $service);
+
+        $service->shouldReceive('uploadRelativeFileBatch')
+            ->twice()
+            ->with(
+                Mockery::type('array'),
+                'sync',
+                'remote/path',
+                Mockery::type('array'),
+                Mockery::type('int'),
+                123,
+            )
+            ->andReturnUsing(fn (array $serverConfig, string $localPath, string $remotePath, array $relativeFiles, int $worker, ?int $releaseId): array => [
+                'worker' => $worker,
+                'status' => 'success',
+                'uploaded_files' => count($relativeFiles),
+                'first_file' => $relativeFiles[0] ?? null,
+                'last_file' => $relativeFiles[array_key_last($relativeFiles)] ?? null,
+                'failed_file' => null,
+                'error' => null,
+            ]);
+
+        Concurrency::shouldReceive('driver')->once()->with('process')->andReturnSelf();
+        Concurrency::shouldReceive('run')
+            ->once()
+            ->andReturnUsing(fn (array $tasks): array => array_map(fn (callable $task): array => $task(), $tasks));
+
+        $server = Server::factory()->make([
+            'auth_type' => 'password',
+            'password' => 'secret',
+        ]);
+
+        $summary = $service->syncServerDirectory($server, 'sync', 'remote/path', [], 123);
+
+        $this->assertSame(0, $summary['failed_workers']);
+        $this->assertSame(2, $summary['uploaded_files']);
+        $this->assertSame(2, $summary['connections']);
+    }
+
+    public function test_upload_relative_file_batch_returns_failure_details()
+    {
+        /** @var SftpService&MockInterface $service */
+        $service = Mockery::mock(SftpService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $service->shouldReceive('connectFromConfig')
+            ->once()
+            ->andThrow(new \RuntimeException('Failed to upload: remote/path/config/broken.txt'));
+
+        $summary = $service->uploadRelativeFileBatch(
+            [
+                'host' => '127.0.0.1',
+                'port' => 22,
+                'username' => 'root',
+                'auth_type' => 'password',
+                'password' => 'secret',
+                'private_key_path' => null,
+            ],
+            'sync',
+            'remote/path',
+            ['config/broken.txt', 'config/other.txt'],
+            3,
+            null,
+        );
+
+        $this->assertSame('failed', $summary['status']);
+        $this->assertSame(3, $summary['worker']);
+        $this->assertSame('broken.txt', $summary['failed_file']);
+        $this->assertSame('Failed to upload: remote/path/config/broken.txt', $summary['error']);
+    }
+
+    public function test_upload_relative_file_batch_logs_throttled_progress()
+    {
+        config()->set('services.sftp.progress_every_files', 2);
+        config()->set('services.sftp.progress_every_seconds', 9999.0);
+
+        $release = Release::factory()->create();
+
+        $sftp = Mockery::mock(SFTP::class);
+        /** @var SftpService&MockInterface $service */
+        $service = Mockery::mock(SftpService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+
+        $service->shouldReceive('connectFromConfig')
+            ->once()
+            ->andReturn($sftp);
+
+        $service->shouldReceive('syncDirectory')
+            ->once()
+            ->with($sftp, 'sync', 'remote/path', [], Mockery::type('callable'), ['alpha.txt', 'beta.txt', 'gamma.txt'])
+            ->andReturnUsing(function ($sftp, $localPath, $remotePath, $skipPatterns, $onProgress, $relativeFiles) {
+                $onProgress('upload', 'alpha.txt');
+                $onProgress('upload', 'beta.txt');
+                $onProgress('upload', 'gamma.txt');
+
+                return 3;
+            });
+
+        $summary = $service->uploadRelativeFileBatch(
+            [
+                'host' => '127.0.0.1',
+                'port' => 22,
+                'username' => 'root',
+                'auth_type' => 'password',
+                'password' => 'secret',
+                'private_key_path' => null,
+            ],
+            'sync',
+            'remote/path',
+            ['alpha.txt', 'beta.txt', 'gamma.txt'],
+            1,
+            $release->id,
+        );
+
+        $this->assertSame('success', $summary['status']);
+        $this->assertDatabaseCount('release_logs', 2);
+        $this->assertDatabaseHas('release_logs', [
+            'release_id' => $release->id,
+            'message' => 'Worker 1 progress: 2/3 files (66.7%), latest: beta.txt',
+        ]);
+        $this->assertDatabaseHas('release_logs', [
+            'release_id' => $release->id,
+            'message' => 'Worker 1 progress: 3/3 files (100.0%), latest: gamma.txt',
+        ]);
     }
 }
