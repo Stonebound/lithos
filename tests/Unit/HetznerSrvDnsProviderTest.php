@@ -50,14 +50,14 @@ class HetznerSrvDnsProviderTest extends TestCase
 
         $provider = new HetznerSrvDnsProvider($this->mockHetznerClient([
             new Response(200, [], $this->zoneResponse()),
-            new Response(200, [], $this->rrsetSingleResponse('survival/SRV', '_minecraft._tcp.survival', '0 5 25565 mc.example.com.')),
-            new Response(200, [], $this->rrsetSingleResponse('survival/SRV', '_minecraft._tcp.survival', '0 5 25570 mc.example.com.')),
-            new Response(200, [], $this->rrsetSingleResponse('survival.la/SRV', '_minecraft._tcp.survival.la', '0 5 25565 la.example.com.')),
-            new Response(200, [], $this->rrsetSingleResponse('survival.la/SRV', '_minecraft._tcp.survival.la', '0 5 25570 la.example.com.')),
+            new Response(200, [], $this->rrsetSingleResponse('survival/SRV', '_minecraft._tcp.survival', '0 5 25565 mc.example.com')),
+            new Response(200, [], $this->rrsetSingleResponse('survival/SRV', '_minecraft._tcp.survival', '0 5 25570 mc.example.com')),
+            new Response(200, [], $this->rrsetSingleResponse('survival.la/SRV', '_minecraft._tcp.survival.la', '0 5 25565 la.example.com')),
+            new Response(200, [], $this->rrsetSingleResponse('survival.la/SRV', '_minecraft._tcp.survival.la', '0 5 25570 la.example.com')),
             new Response(200, [], $this->zoneResponse()),
-            new Response(200, [], $this->rrsetSingleResponse('survival/SRV', '_minecraft._tcp.survival', '0 5 25570 mc.example.com.')),
+            new Response(200, [], $this->rrsetSingleResponse('survival/SRV', '_minecraft._tcp.survival', '0 5 25570 mc.example.com')),
             new Response(200, [], json_encode(['action' => ['id' => 1, 'command' => 'delete_rrset', 'status' => 'success', 'progress' => 100, 'started' => '2026-05-06T00:00:00Z', 'finished' => '2026-05-06T00:00:01Z', 'resources' => [['id' => 'survival/SRV', 'type' => 'rrset']]]], JSON_THROW_ON_ERROR)),
-            new Response(200, [], $this->rrsetSingleResponse('survival.la/SRV', '_minecraft._tcp.survival.la', '0 5 25570 la.example.com.')),
+            new Response(200, [], $this->rrsetSingleResponse('survival.la/SRV', '_minecraft._tcp.survival.la', '0 5 25570 la.example.com')),
             new Response(200, [], json_encode(['action' => ['id' => 1, 'command' => 'delete_rrset', 'status' => 'success', 'progress' => 100, 'started' => '2026-05-06T00:00:00Z', 'finished' => '2026-05-06T00:00:01Z', 'resources' => [['id' => 'survival.la/SRV', 'type' => 'rrset']]]], JSON_THROW_ON_ERROR)),
         ]));
 
@@ -82,21 +82,21 @@ class HetznerSrvDnsProviderTest extends TestCase
             new Response(200, [], $this->zoneResponse()),
             new Response(200, [], $this->rrsetsListResponse([
                 [
-                    'id' => 'survival/SRV',
+                    'id' => '_minecraft._tcp.survival/SRV',
                     'name' => '_minecraft._tcp.survival',
-                    'value' => '0 5 25565 mc.example.com.',
+                    'value' => '0 5 25565 mc.example.com',
                 ],
                 [
-                    'id' => 'survival.la/SRV',
+                    'id' => '_minecraft._tcp.survival.la/SRV',
                     'name' => '_minecraft._tcp.survival.la',
-                    'value' => '0 5 25565 la.example.com.',
+                    'value' => '0 5 25565 la.example.com',
                 ],
             ])),
         ]));
 
         $srvRecord = SrvRecord::factory()->make(['subdomain' => 'survival', 'port' => 25565]);
 
-        $this->assertSame(['survival/SRV', 'survival.la/SRV'], $provider->findMatchingRecordIds($srvRecord));
+        $this->assertSame(['_minecraft._tcp.survival/SRV', '_minecraft._tcp.survival.la/SRV'], $provider->findMatchingRecordIds($srvRecord));
     }
 
     /**
@@ -153,7 +153,7 @@ class HetznerSrvDnsProviderTest extends TestCase
                 'name' => $name,
                 'type' => 'SRV',
                 'ttl' => 300,
-                'records' => [['value' => '0 5 25565 mc.example.com.', 'comment' => 'Managed by Lithos']],
+                'records' => [['value' => '0 5 25565 mc.example.com', 'comment' => 'Managed by Lithos']],
                 'labels' => (object) [],
                 'protection' => (object) [],
                 'zone' => 4711,

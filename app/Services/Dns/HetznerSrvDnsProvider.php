@@ -169,7 +169,7 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
 
     private function normalizeTarget(string $target): string
     {
-        return rtrim($target, '.').'.';
+        return rtrim($target, '.');
     }
 
     /**
