@@ -169,7 +169,7 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
 
     private function normalizeTarget(string $target): string
     {
-        return rtrim($target, '.');
+        return rtrim($target, '.').'.';
     }
 
     /**
@@ -203,7 +203,20 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
             && $rrset->name === $expectedRrset['name']
             && (int) $rrset->ttl === $expectedRrset['ttl']
             && count($rrset->records) === 1
-            && $rrset->records[0]->value === $expectedRrset['value'];
+            && $this->normalizeSrvValue($rrset->records[0]->value) === $this->normalizeSrvValue($expectedRrset['value']);
+    }
+
+    private function normalizeSrvValue(string $value): string
+    {
+        $parts = preg_split('/\s+/', trim($value));
+
+        if (! is_array($parts) || count($parts) !== 4) {
+            return trim($value);
+        }
+
+        [$priority, $weight, $port, $target] = $parts;
+
+        return sprintf('%s %s %s %s', $priority, $weight, $port, rtrim($target, '.'));
     }
 
     /**
