@@ -10,6 +10,7 @@ use App\Filament\Resources\SrvRecords\Pages\ListSrvRecords;
 use App\Filament\Resources\SrvRecords\Schemas\SrvRecordForm;
 use App\Filament\Resources\SrvRecords\Tables\SrvRecordsTable;
 use App\Models\SrvRecord;
+use App\Services\Dns\SrvDnsProviderResolver;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -54,6 +55,6 @@ class SrvRecordResource extends Resource
 
     public static function canAccess(): bool
     {
-        return ! empty(config('services.bunnynet.api_key')) && parent::canAccess();
+        return app(SrvDnsProviderResolver::class)->isConfigured() && parent::canAccess();
     }
 }

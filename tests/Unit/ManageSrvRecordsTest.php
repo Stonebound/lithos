@@ -6,14 +6,13 @@ namespace Tests\Unit;
 
 use App\Jobs\ManageSrvRecords;
 use App\Models\SrvRecord;
-use GuzzleHttp\Client;
-use GuzzleHttp\Handler\MockHandler;
-use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Psr7\Response;
+use App\Services\Dns\SrvDnsProvider;
+use App\Services\Dns\SrvDnsProviderResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 class ManageSrvRecordsTest extends TestCase
@@ -24,21 +23,7 @@ class ManageSrvRecordsTest extends TestCase
     {
         parent::setUp();
 
-        Config::set('services.bunnynet.api_key', 'fake_api_key');
-        Config::set('services.bunnynet.base_domain', 'example.com');
         Queue::fake();
-
-        // Bind a mocked Guzzle client
-        $responses = [];
-        for ($i = 0; $i < 20; $i++) {
-            $responses[] = new Response(200, [], json_encode(['Id' => 456, 'success' => true]));
-        }
-        $responses[0] = new Response(200, [], json_encode(['Items' => [['Id' => 123, 'Domain' => 'example.com']]]));
-        $mock = new MockHandler($responses);
-        $handlerStack = HandlerStack::create($mock);
-        $client = new Client(['handler' => $handlerStack]);
-
-        $this->app->bind(Client::class, fn () => $client);
     }
 
     #[Test]
@@ -59,13 +44,21 @@ class ManageSrvRecordsTest extends TestCase
     {
         $srvRecord = SrvRecord::factory()->create(['subdomain' => 'test', 'port' => 25565]);
 
+        $provider = Mockery::mock(SrvDnsProvider::class);
+        $provider->shouldReceive('createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn([456, 457]);
+
+        $resolver = Mockery::mock(SrvDnsProviderResolver::class);
+        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
+        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->app->instance(SrvDnsProviderResolver::class, $resolver);
+
         $job = new ManageSrvRecords($srvRecord, 'create');
 
         $job->handle();
 
-        // Assert that the record_ids were updated
         $srvRecord->refresh();
-        $this->assertContains(456, $srvRecord->record_ids);
+        $this->assertSame([456, 457], $srvRecord->record_ids);
+        $this->assertSame('hetzner', $srvRecord->dns_provider);
     }
 
     #[Test]
@@ -74,8 +67,17 @@ class ManageSrvRecordsTest extends TestCase
         $srvRecord = SrvRecord::factory()->create([
             'subdomain' => 'test',
             'port' => 25565,
+            'dns_provider' => 'bunny',
             'record_ids' => [1, 2],
         ]);
+
+        $provider = Mockery::mock(SrvDnsProvider::class);
+        $provider->shouldReceive('updateRecords')->once()->with(Mockery::type(SrvRecord::class));
+
+        $resolver = Mockery::mock(SrvDnsProviderResolver::class);
+        $resolver->shouldReceive('providerName')->once()->andReturn('bunny');
+        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'update', ['port' => 25566]);
 
@@ -91,13 +93,26 @@ class ManageSrvRecordsTest extends TestCase
         $srvRecord = SrvRecord::factory()->create([
             'subdomain' => 'old',
             'port' => 25565,
+            'dns_provider' => 'hetzner',
             'record_ids' => [1, 2],
         ]);
+
+        $provider = Mockery::mock(SrvDnsProvider::class);
+        $provider->shouldReceive('deleteRecords')->once()->with(Mockery::type(SrvRecord::class));
+        $provider->shouldReceive('createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['new/SRV']);
+
+        $resolver = Mockery::mock(SrvDnsProviderResolver::class);
+        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
+        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'update', ['subdomain' => 'new']);
 
         $job->handle();
 
+        $srvRecord->refresh();
+        $this->assertSame(['new/SRV'], $srvRecord->record_ids);
+        $this->assertSame('hetzner', $srvRecord->dns_provider);
         $this->assertEquals('update', $job->action);
         $this->assertArrayHasKey('subdomain', $job->changes);
     }
@@ -105,12 +120,58 @@ class ManageSrvRecordsTest extends TestCase
     #[Test]
     public function test_job_handles_delete_action(): void
     {
-        $srvRecord = SrvRecord::factory()->create(['record_ids' => [1, 2]]);
+        $srvRecord = SrvRecord::factory()->create(['dns_provider' => 'bunny', 'record_ids' => [1, 2]]);
+
+        $provider = Mockery::mock(SrvDnsProvider::class);
+        $provider->shouldReceive('deleteRecords')->once()->with(Mockery::type(SrvRecord::class));
+
+        $resolver = Mockery::mock(SrvDnsProviderResolver::class);
+        $resolver->shouldReceive('providerName')->once()->andReturn('bunny');
+        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'delete');
 
         $job->handle();
 
         $this->assertEquals('delete', $job->action);
+    }
+
+    #[Test]
+    public function test_job_fails_when_record_provider_is_missing(): void
+    {
+        $srvRecord = SrvRecord::factory()->create([
+            'record_ids' => [1, 2],
+            'dns_provider' => null,
+        ]);
+
+        $resolver = Mockery::mock(SrvDnsProviderResolver::class);
+        $resolver->shouldReceive('providerName')->once()->andReturn('bunny');
+        $resolver->shouldNotReceive('resolve');
+        $this->app->instance(SrvDnsProviderResolver::class, $resolver);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('no provider');
+
+        (new ManageSrvRecords($srvRecord, 'delete'))->handle();
+    }
+
+    #[Test]
+    public function test_job_fails_when_record_provider_does_not_match_active_provider(): void
+    {
+        $srvRecord = SrvRecord::factory()->create([
+            'record_ids' => [1, 2],
+            'dns_provider' => 'bunny',
+        ]);
+
+        $resolver = Mockery::mock(SrvDnsProviderResolver::class);
+        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
+        $resolver->shouldNotReceive('resolve');
+        $this->app->instance(SrvDnsProviderResolver::class, $resolver);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('managed by [bunny]');
+
+        (new ManageSrvRecords($srvRecord, 'update', ['port' => 25566]))->handle();
     }
 }

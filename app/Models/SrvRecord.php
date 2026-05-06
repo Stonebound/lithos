@@ -38,6 +38,7 @@ class SrvRecord extends Model
     protected $fillable = [
         'subdomain',
         'port',
+        'dns_provider',
         'record_ids',
     ];
 

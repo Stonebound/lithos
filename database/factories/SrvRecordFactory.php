@@ -22,6 +22,8 @@ class SrvRecordFactory extends Factory
         return [
             'subdomain' => $this->faker->word(),
             'port' => $this->faker->numberBetween(1024, 65535),
+            'dns_provider' => null,
+            'record_ids' => null,
         ];
     }
 }

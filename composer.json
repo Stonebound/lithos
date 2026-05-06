@@ -11,6 +11,7 @@
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.0",
+        "lkdevelopment/hetzner-cloud-php-sdk": "^3.0",
         "phpseclib/phpseclib": "^3.0",
         "symfony/yaml": "^7.0",
         "toshy/bunnynet-php": "^9.0"

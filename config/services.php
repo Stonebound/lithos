@@ -48,19 +48,27 @@ return [
 
     'bunnynet' => [
         'api_key' => env('BUNNYNET_API_KEY'),
-        'base_domain' => env('BUNNYNET_BASE_DOMAIN', 'stonebound.net'),
-        'additional_subdomains' => ['la'], // array of additional prefixes
-        'ttl' => env('BUNNYNET_TTL', 300),
-        'base_target' => env('BUNNYNET_BASE_TARGET', 'mc.stonebound.net'),
+    ],
+
+    'hetzner' => [
+        'api_token' => env('HETZNER_API_TOKEN'),
+        'base_url' => env('HETZNER_BASE_URL', 'https://api.hetzner.cloud/v1/'),
+    ],
+
+    'dns' => [
+        'provider' => env('DNS_PROVIDER', 'bunny'),
+        'base_domain' => env('DNS_BASE_DOMAIN', env('BUNNYNET_BASE_DOMAIN', 'stonebound.net')),
+        'additional_subdomains' => ['la'],
+        'ttl' => (int) env('DNS_TTL', env('BUNNYNET_TTL', 300)),
+        'base_target' => env('DNS_BASE_TARGET', env('BUNNYNET_BASE_TARGET', 'mc.stonebound.net')),
         'additional_targets' => [
-            'la' => env('BUNNYNET_LA_TARGET', 'la.stonebound.net'),
+            'la' => env('DNS_LA_TARGET', env('BUNNYNET_LA_TARGET', 'la.stonebound.net')),
         ],
     ],
 
     'minecraft' => [
         'api_user_prefix' => env('API_USER_PREFIX', 'DiscordBot'),
         'endpoints' => [
-            'minecraft_profile_by_uuid_names' => env('MINECRAFT_PROFILE_BY_UUID_NAMES', 'https://api.minecraftservices.com/minecraft/profile/lookup/'),
             'minecraft_profile_by_name' => env('MINECRAFT_PROFILE_BY_NAME', 'https://api.minecraftservices.com/minecraft/profile/lookup/name/'),
         ],
     ],

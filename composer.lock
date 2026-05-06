@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "592294a3df914f3ef2620bf71ac0272f",
+    "content-hash": "54b43aa7eca4f1576d2a144a6abf6049",
     "packages": [
         {
             "name": "blade-ui-kit/blade-heroicons",
@@ -3241,6 +3241,58 @@
                 }
             ],
             "time": "2026-04-02T20:48:35+00:00"
+        },
+        {
+            "name": "lkdevelopment/hetzner-cloud-php-sdk",
+            "version": "v3.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/LKDevelopment/hetzner-cloud-php-sdk.git",
+                "reference": "3562b7666d7dbca62a28d12618773de3d79e6c0f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/LKDevelopment/hetzner-cloud-php-sdk/zipball/3562b7666d7dbca62a28d12618773de3d79e6c0f",
+                "reference": "3562b7666d7dbca62a28d12618773de3d79e6c0f",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "guzzlehttp/guzzle": "^6.3|^7.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^0.12.43 || ^1.0.0",
+                "phpunit/phpunit": "^7.0|^8.5.5|^9.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "LKDev\\HetznerCloud\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Lukas Kämmerling",
+                    "email": "kontakt@lukas-kaemmerling.de"
+                }
+            ],
+            "description": "An unofficial PHP SDK for the Hetzner Cloud API.",
+            "keywords": [
+                "cloud php library",
+                "hcloud",
+                "hetzner",
+                "hetzner cloud"
+            ],
+            "support": {
+                "issues": "https://github.com/LKDevelopment/hetzner-cloud-php-sdk/issues",
+                "source": "https://github.com/LKDevelopment/hetzner-cloud-php-sdk/tree/v3.0.1"
+            },
+            "time": "2026-04-16T13:08:21+00:00"
         },
         {
             "name": "masterminds/html5",
