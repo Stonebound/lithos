@@ -4,20 +4,25 @@ declare(strict_types=1);
 
 namespace App\Services\Providers;
 
-use App\Models\Server;
+use App\Concerns\NormalizesRecordLists;
+use App\Concerns\NormalizesStringValues;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Symfony\Component\Process\Process;
 
 class FtbProvider implements ProviderInterface
 {
+    use NormalizesRecordLists;
+    use NormalizesStringValues;
+
     protected function get(string $url): string
     {
         /** @var Response $response */
         $response = Http::timeout(30)->get($url);
         if ($response->status() >= 400) {
-            throw new \RuntimeException('HTTP GET failed: '.$url.' (status '.$response->status().')');
+            throw new RuntimeException('HTTP GET failed: '.$url.' (status '.$response->status().')');
         }
 
         return (string) $response->body();
@@ -29,14 +34,16 @@ class FtbProvider implements ProviderInterface
             return [];
         }
         $body = $this->get('https://api.feed-the-beast.com/v1/modpacks/public/modpack/'.$providerPackId);
-        $json = json_decode($body, true, flags: JSON_THROW_ON_ERROR) ?? [];
-        $versions = $json['versions'] ?? [];
+        $json = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+        $payload = is_array($json) ? $json : [];
+        $versions = self::normalizeRecordList($payload['versions'] ?? []);
 
+        /** @var array<int, array{id: int|string, name: string}> $out */
         $out = [];
         foreach ($versions as $ver) {
             $out[] = [
-                'id' => $ver['id'] ?? $ver['version'] ?? null,
-                'name' => (string) ($ver['name'] ?? $ver['version'] ?? 'unknown'),
+                'id' => $this->requireIntOrString($ver['id'] ?? $ver['version'] ?? null, 'FTB version id'),
+                'name' => self::normalizeStringValue($ver['name'] ?? $ver['version'] ?? 'unknown', 'unknown'),
             ];
         }
 
@@ -46,10 +53,10 @@ class FtbProvider implements ProviderInterface
         return $out;
     }
 
-    public function fetchSource($providerPackId, $versionId): array
+    public function fetchSource(string|int $providerPackId, string|int $versionId): array
     {
         if (! $providerPackId || ! $versionId) {
-            throw new \RuntimeException('FTB pack id or version id is missing.');
+            throw new RuntimeException('FTB pack id or version id is missing.');
         }
 
         $isArm64 = (stripos(php_uname('m'), 'aarch64') !== false || stripos(php_uname('m'), 'arm64') !== false);
@@ -92,9 +99,22 @@ class FtbProvider implements ProviderInterface
         $process = new Process($cmd, $absTargetDir, null, null, 300);
         $process->run();
         if (! $process->isSuccessful()) {
-            throw new \RuntimeException('FTB installer failed: '.$process->getErrorOutput());
+            throw new RuntimeException('FTB installer failed: '.$process->getErrorOutput());
         }
 
         return ['type' => 'dir', 'path' => $targetDir];
+    }
+
+    private function requireIntOrString(mixed $value, string $label): int|string
+    {
+        if (is_int($value) || is_string($value)) {
+            return $value;
+        }
+
+        if (is_float($value)) {
+            return (int) $value;
+        }
+
+        throw new RuntimeException($label.' is missing or invalid.');
     }
 }

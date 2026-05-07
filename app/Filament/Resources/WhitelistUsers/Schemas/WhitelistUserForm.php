@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\WhitelistUsers\Schemas;
 
+use App\Models\WhitelistUser;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Image;
 use Filament\Schemas\Schema;
@@ -23,11 +24,11 @@ class WhitelistUserForm
             TextInput::make('uuid')
                 ->label('UUID')
                 ->disabled(),
-            Image::make('skin', fn ($record) => $record?->username)
+            Image::make('skin', fn (?WhitelistUser $record): ?string => $record?->username)
                 ->columnSpanFull()
-                ->url(fn ($record) => $record?->getSkinUrl())
+                ->url(fn (?WhitelistUser $record): ?string => $record?->getSkinUrl())
                 ->imageHeight('12rem')
-                ->visible(fn ($operation) => $operation !== 'create'),
+                ->visible(fn (string $operation): bool => $operation !== 'create'),
         ]);
     }
 }

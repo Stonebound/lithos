@@ -18,6 +18,34 @@ class AuditLoggingTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function requireAuditLog(string $modelType, string $action, ?int $modelId = null): AuditLog
+    {
+        $query = AuditLog::query()
+            ->where('model_type', $modelType)
+            ->where('action', $action);
+
+        if ($modelId !== null) {
+            $query->where('model_id', $modelId);
+        }
+
+        $log = $query->first();
+
+        $this->assertInstanceOf(AuditLog::class, $log);
+
+        return $log;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function requireAuditValues(?array $values): array
+    {
+        $this->assertIsArray($values);
+
+        /** @var array<string, mixed> $values */
+        return $values;
+    }
+
     public function test_server_create_logs_audit(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
@@ -78,9 +106,14 @@ class AuditLoggingTest extends TestCase
             'action' => 'update',
         ]);
 
-        $log = AuditLog::where('model_type', Server::class)->where('action', 'update')->first();
-        $this->assertEquals('Old Name', $log->old_values['name']);
-        $this->assertEquals('New Name', $log->new_values['name']);
+        $log = $this->requireAuditLog(Server::class, 'update');
+        $oldValues = $this->requireAuditValues($log->old_values);
+        $newValues = $this->requireAuditValues($log->new_values);
+
+        $this->assertArrayHasKey('name', $oldValues);
+        $this->assertArrayHasKey('name', $newValues);
+        $this->assertEquals('Old Name', $oldValues['name']);
+        $this->assertEquals('New Name', $newValues['name']);
     }
 
     public function test_user_create_logs_audit(): void
@@ -139,14 +172,20 @@ class AuditLoggingTest extends TestCase
         ]);
 
         $log = AuditLog::where('model_type', User::class)->where('action', 'create')->whereJsonContains('new_values->email', $email)->first();
+        $this->assertInstanceOf(AuditLog::class, $log);
+        $newValues = $this->requireAuditValues($log->new_values);
 
         // Ensure password is logged but censored
-        $this->assertEquals('***CHANGED***', $log->new_values['password']);
+        $this->assertArrayHasKey('password', $newValues);
+        $this->assertEquals('***CHANGED***', $newValues['password']);
 
         // Ensure other attributes are still logged normally
-        $this->assertEquals('Test User', $log->new_values['name']);
-        $this->assertEquals($email, $log->new_values['email']);
-        $this->assertEquals('viewer', $log->new_values['role']);
+        $this->assertArrayHasKey('name', $newValues);
+        $this->assertArrayHasKey('email', $newValues);
+        $this->assertArrayHasKey('role', $newValues);
+        $this->assertEquals('Test User', $newValues['name']);
+        $this->assertEquals($email, $newValues['email']);
+        $this->assertEquals('viewer', $newValues['role']);
     }
 
     public function test_whitelist_user_create_update_delete_logs_audit(): void
@@ -202,21 +241,20 @@ class AuditLoggingTest extends TestCase
         // Update only the name
         $user->update(['name' => 'Updated Name']);
 
-        $log = AuditLog::where('model_type', User::class)
-            ->where('action', 'update')
-            ->where('model_id', $user->id)
-            ->first();
+        $log = $this->requireAuditLog(User::class, 'update', $user->id);
+        $oldValues = $this->requireAuditValues($log->old_values);
+        $newValues = $this->requireAuditValues($log->new_values);
 
         // Should only log the changed attribute
-        $this->assertArrayHasKey('name', $log->old_values);
-        $this->assertArrayHasKey('name', $log->new_values);
-        $this->assertEquals('Original Name', $log->old_values['name']);
-        $this->assertEquals('Updated Name', $log->new_values['name']);
+        $this->assertArrayHasKey('name', $oldValues);
+        $this->assertArrayHasKey('name', $newValues);
+        $this->assertEquals('Original Name', $oldValues['name']);
+        $this->assertEquals('Updated Name', $newValues['name']);
 
         // Should not log unchanged attributes
-        $this->assertArrayNotHasKey('email', $log->old_values);
-        $this->assertArrayNotHasKey('email', $log->new_values);
-        $this->assertArrayNotHasKey('role', $log->old_values);
-        $this->assertArrayNotHasKey('role', $log->new_values);
+        $this->assertArrayNotHasKey('email', $oldValues);
+        $this->assertArrayNotHasKey('email', $newValues);
+        $this->assertArrayNotHasKey('role', $oldValues);
+        $this->assertArrayNotHasKey('role', $newValues);
     }
 }

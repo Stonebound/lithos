@@ -22,6 +22,9 @@ class ReleaseFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * @param  array<string, string>  $files
+     */
     protected function makeZipWithFiles(array $files): string
     {
         $path = Storage::disk('local')->path('test-'.uniqid().'.zip');
@@ -65,7 +68,7 @@ class ReleaseFlowTest extends TestCase
                 $root = Storage::disk('local')->path('');
                 $localRel = ltrim(str_replace($root, '', $localPath), '/');
                 Storage::disk('local')->makeDirectory($localRel.'/config');
-                Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]]));
+                Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]], JSON_THROW_ON_ERROR));
             }
 
             public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null, ?array $relativeFiles = null): int
@@ -106,7 +109,7 @@ class ReleaseFlowTest extends TestCase
 
         // Create zip with updated config and a binary jar
         $zipPath = $this->makeZipWithFiles([
-            'config/game.json' => json_encode(['feature' => ['enabled' => true]]),
+            'config/game.json' => json_encode(['feature' => ['enabled' => true]], JSON_THROW_ON_ERROR),
             'mods/example.jar' => 'BINARYJAR',
         ]);
 
@@ -131,6 +134,8 @@ class ReleaseFlowTest extends TestCase
 
         // Prepare and deploy via Filament actions on the edit page
         $release = Release::query()->latest()->first();
+        $this->assertInstanceOf(Release::class, $release);
+
         Livewire::test(EditRelease::class, ['record' => $release->getKey()])
             ->callAction('prepare')
             ->assertHasNoActionErrors();

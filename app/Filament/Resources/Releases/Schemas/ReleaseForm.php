@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases\Schemas;
 
+use App\Concerns\NormalizesStringValues;
 use App\Enums\ReleaseStatus;
 use App\Livewire\Releases\ReleaseLogs;
+use App\Models\Release;
 use App\Models\Server;
 use App\Services\PhpUploadLimit;
+use App\Services\Providers\ProviderInterface;
 use App\Services\Providers\ProviderResolver;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
@@ -15,10 +18,14 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class ReleaseForm
 {
+    use NormalizesStringValues;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -26,25 +33,22 @@ class ReleaseForm
                 Section::make('Logs')
                     ->description('Live output from the preparation and deployment jobs.')
                     ->schema([
-                        Livewire::make(ReleaseLogs::class, fn ($record) => ['release' => $record])
-                            ->hidden(fn ($record) => ! $record),
+                        Livewire::make(ReleaseLogs::class, fn (?Release $record): array => ['release' => $record])
+                            ->hidden(fn (?Release $record): bool => $record === null),
                     ])
                     ->columnSpanFull()
                     ->collapsible()
-                    ->collapsed(fn ($record) => $record?->status === ReleaseStatus::Deployed),
+                    ->collapsed(fn (?Release $record): bool => $record?->status === ReleaseStatus::Deployed),
                 Select::make('server_id')
                     ->label('Target server')
                     ->relationship('server', 'name')
                     ->required()
                     ->helperText('Choose the server to prepare and deploy this release to.')
                     ->reactive()
-                    ->afterStateUpdated(function ($state, callable $set) {
-                        if (! $state) {
-                            return;
-                        }
-                        /** @var Server|null $server */
-                        $server = Server::query()->find($state);
-                        if ($server && $server->provider && $server->provider_pack_id) {
+                    ->afterStateUpdated(function (mixed $state, Set $set): void {
+                        $server = self::serverFromState($state);
+
+                        if ($server && self::hasProviderSource($server)) {
                             $set('source_mode', 'provider');
                         } else {
                             $set('source_mode', 'upload');
@@ -60,16 +64,7 @@ class ReleaseForm
                         'provider' => 'Use provider',
                         'upload' => 'Upload zip',
                     ])
-                    ->default(fn ($get) => (function () use ($get) {
-                        $serverId = $get('server_id');
-                        if (! $serverId) {
-                            return 'upload';
-                        }
-                        /** @var Server|null $server */
-                        $server = Server::query()->find($serverId);
-
-                        return ($server && $server->provider && $server->provider_pack_id) ? 'provider' : 'upload';
-                    })())
+                    ->default(fn (Get $get): string => self::hasProviderSource(self::selectedServer($get)) ? 'provider' : 'upload')
                     ->dehydrated(false)
                     ->live(),
                 // Provider-driven version selection.
@@ -77,23 +72,12 @@ class ReleaseForm
                     ->label('Provider version')
                     ->helperText('Pick a version from the configured provider for the selected server.')
                     ->reactive()
-                    ->hidden(fn ($get) => $get('source_mode') !== 'provider')
-                    ->options(function ($get): array {
-                        $serverId = $get('server_id');
-                        if (! $serverId) {
-                            return [];
-                        }
+                    ->hidden(fn (Get $get): bool => $get('source_mode') !== 'provider')
+                    ->options(function (Get $get): array {
+                        $server = self::selectedServer($get);
+                        $provider = self::providerForServer($server);
 
-                        /** @var Server|null $server */
-                        $server = Server::query()->find($serverId);
-                        if (! $server) {
-                            return [];
-                        }
-
-                        /** @var ProviderResolver $resolver */
-                        $resolver = app(ProviderResolver::class);
-                        $provider = $resolver->for($server);
-                        if (! $provider) {
+                        if (! $server || ! $provider || ! is_string($server->provider_pack_id) || $server->provider_pack_id === '') {
                             return [];
                         }
 
@@ -105,28 +89,24 @@ class ReleaseForm
 
                         return $out;
                     })
-                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    ->afterStateUpdated(function (mixed $state, Set $set, Get $get): void {
                         if (! $state) {
                             return;
                         }
-                        $serverId = $get('server_id');
-                        if (! $serverId) {
+
+                        $server = self::selectedServer($get);
+                        $provider = self::providerForServer($server);
+
+                        if (! $server || ! $provider || ! is_string($server->provider_pack_id) || $server->provider_pack_id === '') {
                             return;
                         }
-                        /** @var Server|null $server */
-                        $server = Server::query()->find($serverId);
-                        if (! $server) {
-                            return;
-                        }
-                        /** @var ProviderResolver $resolver */
-                        $resolver = app(ProviderResolver::class);
-                        $provider = $resolver->for($server);
-                        if (! $provider) {
-                            return;
-                        }
+
                         $versions = $provider->listVersions($server->provider_pack_id);
+                        $selectedVersionId = self::normalizeStringValue($state);
+
                         foreach ($versions as $ver) {
-                            if ((string) $ver['id'] === (string) $state) {
+                            /** @var array{id: int|string, name: string} $ver */
+                            if ((string) $ver['id'] === $selectedVersionId) {
                                 $set('version_label', $ver['name']);
                                 break;
                             }
@@ -138,7 +118,45 @@ class ReleaseForm
                     ->acceptedFileTypes(['application/zip', '.zip'])
                     ->disk('local')
                     ->directory('tmp')
-                    ->hidden(fn ($get) => $get('source_mode') !== 'upload'),
+                    ->hidden(fn (Get $get): bool => $get('source_mode') !== 'upload'),
             ]);
+    }
+
+    private static function selectedServer(Get $get): ?Server
+    {
+        return self::serverFromState($get('server_id'));
+    }
+
+    private static function serverFromState(mixed $state): ?Server
+    {
+        if (! is_int($state) && ! is_string($state) && ! is_numeric($state)) {
+            return null;
+        }
+
+        /** @var Server|null $server */
+        $server = Server::query()->find($state);
+
+        return $server;
+    }
+
+    private static function hasProviderSource(?Server $server): bool
+    {
+        return $server instanceof Server
+            && is_string($server->provider)
+            && $server->provider !== ''
+            && is_string($server->provider_pack_id)
+            && $server->provider_pack_id !== '';
+    }
+
+    private static function providerForServer(?Server $server): ?ProviderInterface
+    {
+        if (! $server instanceof Server || ! self::hasProviderSource($server)) {
+            return null;
+        }
+
+        /** @var ProviderResolver $resolver */
+        $resolver = app(ProviderResolver::class);
+
+        return $resolver->for($server);
     }
 }

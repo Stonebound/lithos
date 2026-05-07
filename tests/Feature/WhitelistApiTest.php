@@ -8,6 +8,7 @@ use App\Models\WhitelistUser;
 use App\Services\MinecraftApi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class WhitelistApiTest extends TestCase
@@ -50,8 +51,10 @@ class WhitelistApiTest extends TestCase
         $this->withHeaders(['api-key' => 'wrong'])->postJson('/api/whitelist', ['username' => 'charlie'])->assertStatus(401);
 
         // correct key should create an audit log and whitelist user (service resolves uuid using MinecraftApi; we'll stub it)
-        $this->mock(MinecraftApi::class, function ($mock) {
-            $mock->shouldReceive('uuidForName')->with('charlie')->andReturn('33333333-3333-3333-3333-333333333333');
+        $this->mock(MinecraftApi::class, function (MockInterface $mock): void {
+            $this->expectMock($mock, 'uuidForName')
+                ->with('charlie')
+                ->andReturn('33333333-3333-3333-3333-333333333333');
         });
 
         $this->withHeaders(['api-key' => 'test-key', 'api-user' => 'DiscordBot'])->postJson('/api/whitelist', ['name' => 'charlie'])

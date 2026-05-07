@@ -11,6 +11,7 @@ use App\Services\Dns\SrvDnsProviderResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Tests\TestCase;
@@ -44,12 +45,14 @@ class ManageSrvRecordsTest extends TestCase
     {
         $srvRecord = SrvRecord::factory()->create(['subdomain' => 'test', 'port' => 25565]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn([456, 457]);
+        $this->expectMock($provider, 'createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn([456, 457]);
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('hetzner');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'create');
@@ -71,12 +74,14 @@ class ManageSrvRecordsTest extends TestCase
             'record_ids' => [1, 2],
         ]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('updateRecords')->once()->with(Mockery::type(SrvRecord::class));
+        $this->expectMock($provider, 'updateRecords')->once()->with(Mockery::type(SrvRecord::class));
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('providerName')->once()->andReturn('bunny');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('bunny');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'update', ['port' => 25566]);
@@ -97,13 +102,15 @@ class ManageSrvRecordsTest extends TestCase
             'record_ids' => [1, 2],
         ]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('deleteRecords')->once()->with(Mockery::type(SrvRecord::class));
-        $provider->shouldReceive('createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['new/SRV']);
+        $this->expectMock($provider, 'deleteRecords')->once()->with(Mockery::type(SrvRecord::class));
+        $this->expectMock($provider, 'createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['new/SRV']);
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('hetzner');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'update', ['subdomain' => 'new']);
@@ -122,12 +129,14 @@ class ManageSrvRecordsTest extends TestCase
     {
         $srvRecord = SrvRecord::factory()->create(['dns_provider' => 'bunny', 'record_ids' => [1, 2]]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('deleteRecords')->once()->with(Mockery::type(SrvRecord::class));
+        $this->expectMock($provider, 'deleteRecords')->once()->with(Mockery::type(SrvRecord::class));
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('providerName')->once()->andReturn('bunny');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('bunny');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
         $job = new ManageSrvRecords($srvRecord, 'delete');
@@ -145,8 +154,9 @@ class ManageSrvRecordsTest extends TestCase
             'dns_provider' => null,
         ]);
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('providerName')->once()->andReturn('bunny');
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('bunny');
         $resolver->shouldNotReceive('resolve');
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
@@ -164,8 +174,9 @@ class ManageSrvRecordsTest extends TestCase
             'dns_provider' => 'bunny',
         ]);
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('hetzner');
         $resolver->shouldNotReceive('resolve');
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 

@@ -8,6 +8,7 @@ use App\Models\User;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,8 +16,9 @@ class ServerForm
 {
     public static function configure(Schema $schema): Schema
     {
-        /** @var User $user */
+        /** @var User|null $user */
         $user = Auth::user();
+        $isAdmin = $user?->isAdmin() ?? false;
 
         return $schema
             ->components([
@@ -34,7 +36,7 @@ class ServerForm
                     ->label('Host')
                     ->required()
                     ->default('mc.stonebound.net')
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 TextInput::make('port')
                     ->label('SSH port')
                     ->required()
@@ -42,12 +44,12 @@ class ServerForm
                     ->minValue(1)
                     ->maxValue(65535)
                     ->default(3875)
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 TextInput::make('username')
                     ->label('SSH username')
                     ->required()
                     ->placeholder('deployer')
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 Select::make('auth_type')
                     ->label('Authentication')
                     ->options([
@@ -58,27 +60,27 @@ class ServerForm
                     ->default('password')
                     ->native(false)
                     ->reactive()
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 TextInput::make('password')
                     ->label('Password')
                     ->password()
                     ->revealable()
-                    ->required(fn ($get, $operation) => $operation === 'create' && $get('auth_type') === 'password')
-                    ->hidden(fn ($get) => $get('auth_type') !== 'password')
-                    ->dehydrated(fn ($get, $state) => $get('auth_type') === 'password' && filled($state))
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->required(fn (Get $get, string $operation): bool => $operation === 'create' && $get('auth_type') === 'password')
+                    ->hidden(fn (Get $get): bool => $get('auth_type') !== 'password')
+                    ->dehydrated(fn (Get $get, mixed $state): bool => $get('auth_type') === 'password' && filled($state))
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 TextInput::make('private_key_path')
                     ->label('Private key path')
                     ->placeholder('/home/user/.ssh/id_rsa')
-                    ->required(fn ($get, $operation) => $operation === 'create' && $get('auth_type') === 'private_key')
-                    ->hidden(fn ($get) => $get('auth_type') !== 'private_key')
-                    ->dehydrated(fn ($get) => $get('auth_type') === 'private_key')
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->required(fn (Get $get, string $operation): bool => $operation === 'create' && $get('auth_type') === 'private_key')
+                    ->hidden(fn (Get $get): bool => $get('auth_type') !== 'private_key')
+                    ->dehydrated(fn (Get $get): bool => $get('auth_type') === 'private_key')
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 TextInput::make('remote_root_path')
                     ->label('Remote root path')
                     ->required()
                     ->default('/')
-                    ->disabled(fn ($operation) => $operation === 'edit' && ! $user->isAdmin()),
+                    ->disabled(fn (string $operation): bool => $operation === 'edit' && ! $isAdmin),
                 TagsInput::make('include_paths')
                     ->label('Include folders')
                     ->placeholder('Add folders to include')

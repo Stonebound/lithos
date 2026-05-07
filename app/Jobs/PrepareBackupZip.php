@@ -66,6 +66,10 @@ class PrepareBackupZip implements ShouldBeUnique, ShouldQueue
 
         $files = $disk->allFiles($backupDir);
         foreach ($files as $file) {
+            if (! is_string($file)) {
+                continue;
+            }
+
             $localPath = $disk->path($file);
             $relativePath = substr($file, strlen($backupDir) + 1);
             $zip->addFile($localPath, $relativePath);

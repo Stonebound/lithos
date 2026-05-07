@@ -82,11 +82,28 @@ class OverrideRulesControllerTest extends TestCase
             ->assertHasNoFormErrors();
 
         $rule = OverrideRule::query()->where('name', 'AddExtraFile')->firstOrFail();
+        $payload = $rule->payload;
+
+        $this->assertIsArray($payload);
+        $this->assertArrayHasKey('overwrite', $payload);
+        $this->assertArrayHasKey('files', $payload);
+        $this->assertIsArray($payload['files']);
+
+        $firstFile = $payload['files'][0] ?? null;
+
+        $this->assertIsArray($firstFile);
+        $this->assertArrayHasKey('to', $firstFile);
+        $this->assertArrayHasKey('from_upload', $firstFile);
+        $this->assertIsArray($firstFile['from_upload']);
+
+        $fromUpload = $firstFile['from_upload'][0] ?? null;
+
+        $this->assertIsString($fromUpload);
 
         $this->assertSame(['*'], $rule->path_patterns);
         $this->assertSame('file_add', $rule->type->value);
-        $this->assertTrue($rule->payload['overwrite']);
-        $this->assertSame('mods/extra.jar', $rule->payload['files'][0]['to']);
-        $this->assertTrue(Storage::disk('local')->exists($rule->payload['files'][0]['from_upload'][0]));
+        $this->assertTrue($payload['overwrite']);
+        $this->assertSame('mods/extra.jar', $firstFile['to']);
+        $this->assertTrue(Storage::disk('local')->exists($fromUpload));
     }
 }

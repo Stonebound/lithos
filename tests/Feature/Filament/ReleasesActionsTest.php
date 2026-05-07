@@ -90,7 +90,7 @@ class ReleasesActionsTest extends TestCase
                 ];
             }
 
-            public function fetchSource($providerPackId, $versionId): array
+            public function fetchSource(string|int $providerPackId, string|int $versionId): array
             {
                 return ['type' => 'dir', 'path' => Storage::disk('local')->path('test-source')];
             }
@@ -100,7 +100,7 @@ class ReleasesActionsTest extends TestCase
         {
             public function __construct(private ProviderInterface $provider) {}
 
-            public function for(Server $server): ?ProviderInterface
+            public function for(Server $server): ProviderInterface
             {
                 return $this->provider;
             }
@@ -122,6 +122,10 @@ class ReleasesActionsTest extends TestCase
                 $localRel = ltrim(str_replace($root, '', $localPath), '/');
                 Storage::disk('local')->makeDirectory($localRel);
                 foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
+                    if (! is_string($file)) {
+                        continue;
+                    }
+
                     $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
 
                     // Simple skip check for test mock
@@ -141,7 +145,14 @@ class ReleasesActionsTest extends TestCase
                     if ($dir !== '.' && ! Storage::disk('local')->exists($dir)) {
                         Storage::disk('local')->makeDirectory($dir);
                     }
-                    Storage::disk('local')->put($targetRel, Storage::disk('local')->get($file));
+
+                    $contents = Storage::disk('local')->get($file);
+
+                    if (! is_string($contents)) {
+                        throw new \RuntimeException('Unexpected storage contents.');
+                    }
+
+                    Storage::disk('local')->put($targetRel, $contents);
                 }
             }
 
@@ -178,6 +189,7 @@ class ReleasesActionsTest extends TestCase
         $release = $release->refresh();
         $this->assertSame(ReleaseStatus::Deployed, $release->status);
         $this->assertNotEmpty($release->prepared_path);
+        $this->assertIsString($release->prepared_path);
         $this->assertTrue(Storage::disk('local')->exists($release->prepared_path));
 
         // Assert server state updated

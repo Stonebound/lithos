@@ -25,6 +25,14 @@ class SrvRecordResourceTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function jsonBody(array $payload): string
+    {
+        return json_encode($payload, JSON_THROW_ON_ERROR);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,37 +47,37 @@ class SrvRecordResourceTest extends TestCase
 
         // list_srv_records: 2 records, each triggers base + 1 additional
         for ($i = 0; $i < 2; $i++) {
-            $mockResponses[] = new Response(200, [], json_encode(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]])); // zone lookup
-            $mockResponses[] = new Response(200, [], json_encode(['Id' => $id++])); // add base
+            $mockResponses[] = new Response(200, [], $this->jsonBody(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]])); // zone lookup
+            $mockResponses[] = new Response(200, [], $this->jsonBody(['Id' => $id++])); // add base
             foreach ($additionalSubdomains as $sub) {
-                $mockResponses[] = new Response(200, [], json_encode(['Id' => $id++])); // add additional
+                $mockResponses[] = new Response(200, [], $this->jsonBody(['Id' => $id++])); // add additional
             }
         }
 
         // create_srv_record: base + 1 additional
-        $mockResponses[] = new Response(200, [], json_encode(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]]));
-        $mockResponses[] = new Response(200, [], json_encode(['Id' => $id++])); // add base
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]]));
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['Id' => $id++])); // add base
         foreach ($additionalSubdomains as $sub) {
-            $mockResponses[] = new Response(200, [], json_encode(['Id' => $id++])); // add additional
+            $mockResponses[] = new Response(200, [], $this->jsonBody(['Id' => $id++])); // add additional
         }
 
         // edit_srv_record: delete (base + additional), then add (base + additional)
-        $mockResponses[] = new Response(200, [], json_encode(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]])); // zone lookup for delete
-        $mockResponses[] = new Response(200, [], json_encode(['success' => true])); // delete base
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]])); // zone lookup for delete
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['success' => true])); // delete base
         foreach ($additionalSubdomains as $sub) {
-            $mockResponses[] = new Response(200, [], json_encode(['success' => true])); // delete additional
+            $mockResponses[] = new Response(200, [], $this->jsonBody(['success' => true])); // delete additional
         }
-        $mockResponses[] = new Response(200, [], json_encode(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]])); // zone lookup for add
-        $mockResponses[] = new Response(200, [], json_encode(['Id' => $id++])); // add base
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]])); // zone lookup for add
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['Id' => $id++])); // add base
         foreach ($additionalSubdomains as $sub) {
-            $mockResponses[] = new Response(200, [], json_encode(['Id' => $id++])); // add additional
+            $mockResponses[] = new Response(200, [], $this->jsonBody(['Id' => $id++])); // add additional
         }
 
         // delete_srv_record: delete (base + additional)
-        $mockResponses[] = new Response(200, [], json_encode(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]]));
-        $mockResponses[] = new Response(200, [], json_encode(['success' => true])); // delete base
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['Items' => [['Id' => 123, 'Domain' => 'stonebound.net']]]));
+        $mockResponses[] = new Response(200, [], $this->jsonBody(['success' => true])); // delete base
         foreach ($additionalSubdomains as $sub) {
-            $mockResponses[] = new Response(200, [], json_encode(['success' => true])); // delete additional
+            $mockResponses[] = new Response(200, [], $this->jsonBody(['success' => true])); // delete additional
         }
 
         $mock = new MockHandler($mockResponses);
@@ -116,7 +124,7 @@ class SrvRecordResourceTest extends TestCase
             'port' => 25565,
         ]);
 
-        Queue::assertPushed(ManageSrvRecords::class, function ($job) {
+        Queue::assertPushed(ManageSrvRecords::class, function (ManageSrvRecords $job): bool {
             return $job->action === 'create';
         });
     }
@@ -145,8 +153,12 @@ class SrvRecordResourceTest extends TestCase
         $this->assertEquals('newserver', $record->subdomain);
         $this->assertEquals(25566, $record->port);
 
-        Queue::assertPushed(ManageSrvRecords::class, function ($job) {
-            return $job->action === 'update' && isset($job->changes['subdomain']) && isset($job->changes['port']);
+        Queue::assertPushed(ManageSrvRecords::class, function (ManageSrvRecords $job): bool {
+            $changes = $job->changes;
+
+            return $job->action === 'update'
+                && array_key_exists('subdomain', $changes)
+                && array_key_exists('port', $changes);
         });
     }
 
@@ -167,7 +179,7 @@ class SrvRecordResourceTest extends TestCase
 
         $this->assertModelMissing($record);
 
-        Queue::assertPushed(ManageSrvRecords::class, function ($job) {
+        Queue::assertPushed(ManageSrvRecords::class, function (ManageSrvRecords $job): bool {
             return $job->action === 'delete';
         });
     }

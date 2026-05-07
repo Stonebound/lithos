@@ -61,13 +61,24 @@ class OverrideRulesFileOpsTest extends TestCase
                 $localRel = ltrim(str_replace($root, '', $localPath), '/');
                 Storage::disk('local')->makeDirectory($localRel);
                 foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
+                    if (! is_string($file)) {
+                        continue;
+                    }
+
                     $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
                     $targetRel = $localRel.'/'.($relative ?: basename($file));
                     $dir = dirname($targetRel);
                     if ($dir !== '.' && ! Storage::disk('local')->exists($dir)) {
                         Storage::disk('local')->makeDirectory($dir);
                     }
-                    Storage::disk('local')->put($targetRel, Storage::disk('local')->get($file));
+
+                    $contents = Storage::disk('local')->get($file);
+
+                    if (! is_string($contents)) {
+                        throw new \RuntimeException('Unexpected storage contents.');
+                    }
+
+                    Storage::disk('local')->put($targetRel, $contents);
                 }
             }
         };
@@ -101,6 +112,7 @@ class OverrideRulesFileOpsTest extends TestCase
         // Prepare
         ReleaseResource::prepareRelease($release);
         $release = $release->refresh();
+        $this->assertIsString($release->prepared_path);
 
         // Assert prepared contains extra.jar and keep-me.jar, but not remove-me.jar
         $this->assertTrue(Storage::disk('local')->exists($release->prepared_path.'/mods/extra.jar'));

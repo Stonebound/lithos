@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\OverrideRules\Schemas;
 
+use App\Concerns\NormalizesStringValues;
 use App\Enums\OverrideRuleType;
 use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\CodeEditor\Enums\Language;
@@ -14,10 +15,14 @@ use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class OverrideRuleForm
 {
+    use NormalizesStringValues;
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -48,14 +53,14 @@ class OverrideRuleForm
                     ->helperText('Optional: only apply this rule to servers with this Minecraft version. Uses regular expressions, so make sure to escape dots.')
                     ->prefix('/^')
                     ->suffix('$/')
-                    ->visible(fn ($get) => $get('scope') === 'global'),
+                    ->visible(fn (Get $get): bool => $get('scope') === 'global'),
                 Select::make('servers')
                     ->label('Servers')
                     ->relationship('servers', 'name')
                     ->multiple()
                     ->preload()
-                    ->hidden(fn ($get) => $get('scope') !== 'server')
-                    ->required(fn ($get) => $get('scope') === 'server'),
+                    ->hidden(fn (Get $get): bool => $get('scope') !== 'server')
+                    ->required(fn (Get $get): bool => $get('scope') === 'server'),
                 Select::make('type')
                     ->label('Rule type')
                     ->options(OverrideRuleType::class)
@@ -65,10 +70,10 @@ class OverrideRuleForm
                     ->label('Path patterns')
                     ->helperText('Glob pattern(s) that match files to change, e.g. config/**/*.json. Press enter after each pattern.')
                     ->default(['*'])
-                    ->required(fn ($get) => $get('type') !== OverrideRuleType::FileAdd)
-                    ->hidden(fn ($get) => $get('type') === OverrideRuleType::FileAdd)
+                    ->required(fn (Get $get): bool => self::selectedRuleType($get) !== OverrideRuleType::FileAdd)
+                    ->hidden(fn (Get $get): bool => self::selectedRuleType($get) === OverrideRuleType::FileAdd)
                     ->dehydratedWhenHidden()
-                    ->dehydrateStateUsing(fn ($state, $get) => $get('type') === OverrideRuleType::FileAdd ? ['*'] : $state),
+                    ->dehydrateStateUsing(fn (mixed $state, Get $get): array => self::selectedRuleType($get) === OverrideRuleType::FileAdd ? ['*'] : self::normalizeStringList($state)),
                 // Inputs for file_add
                 Repeater::make('add_files')
                     ->label('Files to add')
@@ -83,60 +88,71 @@ class OverrideRuleForm
                             ->placeholder('mods/Extra.jar')
                             ->required(),
                     ])
-                    ->afterStateHydrated(function ($set, $get) {
-                        $type = $get('type');
-                        $payload = $get('payload');
-                        if ($type === OverrideRuleType::FileAdd && is_array($payload)) {
-                            if (isset($payload['files'])) {
-                                $set('add_files', $payload['files']);
+                    ->afterStateHydrated(function (Set $set, Get $get): void {
+                        $payload = self::payloadArray($get('payload'));
+
+                        if (self::selectedRuleType($get) === OverrideRuleType::FileAdd) {
+                            $files = $payload['files'] ?? null;
+
+                            if (is_array($files)) {
+                                $set('add_files', $files);
                             }
-                            $set('overwrite', $payload['overwrite'] ?? true);
+
+                            $set('overwrite', (bool) ($payload['overwrite'] ?? true));
                         }
                     })
                     ->columns(2)
-                    ->hidden(fn ($get) => $get('type') !== OverrideRuleType::FileAdd)
-                    ->required(fn ($get) => $get('type') === OverrideRuleType::FileAdd),
+                    ->hidden(fn (Get $get): bool => self::selectedRuleType($get) !== OverrideRuleType::FileAdd)
+                    ->required(fn (Get $get): bool => self::selectedRuleType($get) === OverrideRuleType::FileAdd),
                 Toggle::make('overwrite')
                     ->label('Overwrite if exists')
                     ->default(true)
-                    ->hidden(fn ($get) => $get('type') !== OverrideRuleType::FileAdd),
+                    ->hidden(fn (Get $get): bool => self::selectedRuleType($get) !== OverrideRuleType::FileAdd),
                 CodeEditor::make('payload')
                     ->label('Payload (JSON)')
-                    ->required(fn ($get) => ! in_array($get('type'), [
+                    ->required(fn (Get $get): bool => ! in_array(self::selectedRuleType($get), [
                         OverrideRuleType::FileAdd,
                         OverrideRuleType::FileRemove,
                         OverrideRuleType::FileSkip,
-                    ]))
+                    ], true))
                     ->language(Language::Json)
                     ->columnSpanFull()
                     ->helperText('Examples: text_replace: {"search":"...","replace":"...","regex":false} • json/yaml_patch: {"merge":{...}}')
-                    ->formatStateUsing(fn ($state, $get) => in_array($get('type'), [
+                    ->formatStateUsing(fn (mixed $state, Get $get): string => in_array(self::selectedRuleType($get), [
                         OverrideRuleType::FileAdd,
                         OverrideRuleType::FileRemove,
                         OverrideRuleType::FileSkip,
-                    ])
+                    ], true)
                         ? ''
-                        : (is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : (string) ($state ?? '')))
-                    ->dehydrateStateUsing(function ($state, $get) {
-                        $type = $get('type');
+                        : (is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) : self::normalizeStringValue($state)))
+                    ->dehydrateStateUsing(function (mixed $state, Get $get): array {
+                        $type = self::selectedRuleType($get);
+
                         if ($type === OverrideRuleType::FileAdd) {
                             return [
-                                'files' => (array) ($get('add_files') ?? []),
+                                'files' => self::arrayValue($get('add_files')),
                                 'overwrite' => (bool) ($get('overwrite') ?? true),
                             ];
                         }
+
                         if ($type === OverrideRuleType::FileRemove || $type === OverrideRuleType::FileSkip) {
                             return [];
                         }
 
-                        return is_string($state) ? (json_decode($state ?: '[]', true, flags: JSON_THROW_ON_ERROR) ?: []) : ($state ?? []);
+                        if (is_string($state)) {
+                            $decoded = json_decode($state ?: '[]', true, flags: JSON_THROW_ON_ERROR);
+
+                            return is_array($decoded) ? $decoded : [];
+                        }
+
+                        return is_array($state) ? $state : [];
                     })
                     ->dehydratedWhenHidden()
-                    ->hidden(fn ($get) => in_array($get('type'), [
+                    ->hidden(fn (Get $get): bool => in_array(self::selectedRuleType($get), [
                         OverrideRuleType::FileAdd,
                         OverrideRuleType::FileRemove,
                         OverrideRuleType::FileSkip,
-                    ])),
+                    ], true)),
                 TextInput::make('priority')
                     ->label('Priority')
                     ->helperText('Higher runs earlier. 0 is default.')
@@ -144,5 +160,37 @@ class OverrideRuleForm
                     ->numeric()
                     ->default(0),
             ]);
+    }
+
+    private static function selectedRuleType(Get $get): ?OverrideRuleType
+    {
+        $type = $get('type');
+
+        if ($type instanceof OverrideRuleType) {
+            return $type;
+        }
+
+        return is_string($type) ? OverrideRuleType::tryFrom($type) : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function payloadArray(mixed $payload): array
+    {
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $payload */
+        return $payload;
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private static function arrayValue(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
     }
 }

@@ -28,7 +28,15 @@ class FetchMinecraftVersions implements ShouldQueue
 
         $versions = $response->json('versions');
 
+        if (! is_array($versions)) {
+            return;
+        }
+
         foreach ($versions as $version) {
+            if (! is_array($version)) {
+                continue;
+            }
+
             if ($version['type'] !== 'release') {
                 continue;
             }

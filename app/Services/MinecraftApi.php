@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 
 class MinecraftApi
 {
     public function uuidForName(string $name): ?string
     {
-        $endpoint = config('services.minecraft.endpoints.minecraft_profile_by_name');
+        $endpoint = Config::string('services.minecraft.endpoints.minecraft_profile_by_name', '');
+        if ($endpoint === '') {
+            return null;
+        }
+
         $endpoint = rtrim($endpoint, '/').'/'.$name;
 
         try {
@@ -19,6 +24,10 @@ class MinecraftApi
             $response = Http::acceptJson()->get($endpoint);
             if ($response->successful()) {
                 $json = $response->json();
+
+                if (! is_array($json)) {
+                    return null;
+                }
 
                 $id = $json['id'] ?? null;
                 if (is_string($id)) {

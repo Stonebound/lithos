@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Concerns\NormalizesStringValues;
 use App\Filament\Resources\Releases\ReleaseResource;
 use App\Models\OverrideRule;
 use App\Models\Release;
@@ -13,6 +14,7 @@ use Illuminate\Foundation\Queue\Queueable;
 
 class DeleteRemovedFiles implements ShouldQueue
 {
+    use NormalizesStringValues;
     use Queueable;
 
     public int $timeout = 3600;
@@ -36,12 +38,17 @@ class DeleteRemovedFiles implements ShouldQueue
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($server);
 
-        $include = $server->include_paths ?? [];
+        $preparedPath = $release->prepared_path;
+        if (! is_string($preparedPath) || $preparedPath === '') {
+            return;
+        }
+
+        $include = self::normalizeStringList($server->include_paths);
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($server);
 
-        $sftpSvc->deleteRemoved($sftp, $release->prepared_path, $server->remote_root_path, $include, $skipPatterns, function ($action, $file) use ($release) {
-            ReleaseResource::log($release, "Deleted: {$file}");
+        $sftpSvc->deleteRemoved($sftp, $preparedPath, $server->remote_root_path, $include, $skipPatterns, function (string $action, mixed $file) use ($release): void {
+            ReleaseResource::log($release, 'Deleted: '.self::normalizeStringValue($file, 'unknown'));
         });
 
         ReleaseResource::log($release, 'Cleanup of removed files completed.');

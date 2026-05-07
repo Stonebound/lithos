@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Server;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -17,8 +18,11 @@ class PterodactylService
 
     public function __construct()
     {
-        $this->baseUrl = config('services.pterodactyl.base_url');
-        $this->apiKey = config('services.pterodactyl.api_key');
+        $baseUrl = Config::get('services.pterodactyl.base_url');
+        $apiKey = Config::get('services.pterodactyl.api_key');
+
+        $this->baseUrl = is_string($baseUrl) && $baseUrl !== '' ? $baseUrl : null;
+        $this->apiKey = is_string($apiKey) && $apiKey !== '' ? $apiKey : null;
     }
 
     /**
@@ -77,7 +81,9 @@ class PterodactylService
             ])->get("{$this->baseUrl}/api/client/servers/{$serverId}/resources");
 
             if ($response->successful()) {
-                return $response->json('attributes.current_state');
+                $state = $response->json('attributes.current_state');
+
+                return is_string($state) ? $state : null;
             }
 
             Log::warning('Failed to get Pterodactyl server state', [

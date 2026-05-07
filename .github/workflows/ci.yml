@@ -34,3 +34,5 @@ jobs:
         run: vendor/bin/pint --test
       - name: Run PHPUnit tests
         run: php artisan test
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=2G --error-format=github --no-progress --no-ansi

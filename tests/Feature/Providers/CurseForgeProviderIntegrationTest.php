@@ -16,8 +16,8 @@ class CurseForgeProviderIntegrationTest extends TestCase
     public function test_list_versions_and_fetch_source_with_real_api(): void
     {
         $apiKey = config('services.curseforge.key');
-        $projectId = (string) (env('TEST_CURSEFORGE_PROJECT_ID') ?? '');
-        $fileId = (string) (env('TEST_CURSEFORGE_FILE_ID') ?? '');
+        $projectId = getenv('TEST_CURSEFORGE_PROJECT_ID') ?: '';
+        $fileId = getenv('TEST_CURSEFORGE_FILE_ID') ?: '';
 
         if (! $apiKey || ! $projectId || ! $fileId) {
             $this->markTestSkipped('CurseForge integration test skipped: missing API key or env TEST_CURSEFORGE_PROJECT_ID/TEST_CURSEFORGE_FILE_ID');
@@ -37,11 +37,10 @@ class CurseForgeProviderIntegrationTest extends TestCase
 
         $provider = new CurseForgeProvider;
 
-        $versions = $provider->listVersions($server->provider_pack_id);
-        $this->assertIsArray($versions);
+        $versions = $provider->listVersions($projectId);
         $this->assertNotEmpty($versions);
 
-        $src = $provider->fetchSource($server->provider_pack_id, $fileId);
+        $src = $provider->fetchSource($projectId, $fileId);
         $this->assertSame('zip', $src['type']);
         $this->assertFileExists($src['path']);
     }

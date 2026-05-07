@@ -11,6 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -35,17 +36,19 @@ class MigrateSrvRecordDnsProviderCommandTest extends TestCase
             'record_ids' => [1, 2],
         ]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('findMatchingRecordIds')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['survival/SRV']);
+        $this->expectMock($provider, 'findMatchingRecordIds')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['survival/SRV']);
         $provider->shouldNotReceive('createRecords');
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('isConfigured')->once()->andReturn(true);
-        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'isConfigured')->once()->andReturn(true);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('hetzner');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
-        $this->artisan('srv-records:migrate-provider')
+        $this->artisanCommand('srv-records:migrate-provider')
             ->assertExitCode(Command::SUCCESS);
 
         $srvRecord->refresh();
@@ -64,17 +67,19 @@ class MigrateSrvRecordDnsProviderCommandTest extends TestCase
             'record_ids' => [1, 2],
         ]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('findMatchingRecordIds')->once()->with(Mockery::type(SrvRecord::class))->andReturn([]);
-        $provider->shouldReceive('createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['survival/SRV']);
+        $this->expectMock($provider, 'findMatchingRecordIds')->once()->with(Mockery::type(SrvRecord::class))->andReturn([]);
+        $this->expectMock($provider, 'createRecords')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['survival/SRV']);
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('isConfigured')->once()->andReturn(true);
-        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'isConfigured')->once()->andReturn(true);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('hetzner');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
-        $this->artisan('srv-records:migrate-provider')
+        $this->artisanCommand('srv-records:migrate-provider')
             ->assertExitCode(Command::SUCCESS);
 
         $srvRecord->refresh();
@@ -93,17 +98,19 @@ class MigrateSrvRecordDnsProviderCommandTest extends TestCase
             'record_ids' => [1, 2],
         ]);
 
+        /** @var SrvDnsProvider&MockInterface $provider */
         $provider = Mockery::mock(SrvDnsProvider::class);
-        $provider->shouldReceive('findMatchingRecordIds')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['survival/SRV']);
+        $this->expectMock($provider, 'findMatchingRecordIds')->once()->with(Mockery::type(SrvRecord::class))->andReturn(['survival/SRV']);
         $provider->shouldNotReceive('createRecords');
 
+        /** @var SrvDnsProviderResolver&MockInterface $resolver */
         $resolver = Mockery::mock(SrvDnsProviderResolver::class);
-        $resolver->shouldReceive('isConfigured')->once()->andReturn(true);
-        $resolver->shouldReceive('providerName')->once()->andReturn('hetzner');
-        $resolver->shouldReceive('resolve')->once()->andReturn($provider);
+        $this->expectMock($resolver, 'isConfigured')->once()->andReturn(true);
+        $this->expectMock($resolver, 'providerName')->once()->andReturn('hetzner');
+        $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
-        $this->artisan('srv-records:migrate-provider --dry-run')
+        $this->artisanCommand('srv-records:migrate-provider --dry-run')
             ->assertExitCode(Command::SUCCESS);
 
         $srvRecord->refresh();

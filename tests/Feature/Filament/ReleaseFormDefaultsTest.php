@@ -9,7 +9,9 @@ use App\Models\Server;
 use App\Models\User;
 use App\Services\Providers\ProviderInterface;
 use App\Services\Providers\ProviderResolver;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -17,11 +19,6 @@ use Tests\TestCase;
 class ReleaseFormDefaultsTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-    }
 
     #[Test]
     public function defaults_to_provider_if_available_and_sets_version_label(): void
@@ -68,7 +65,7 @@ class ReleaseFormDefaultsTest extends TestCase
                 ];
             }
 
-            public function fetchSource($providerPackId, $versionId): array
+            public function fetchSource(string|int $providerPackId, string|int $versionId): array
             {
                 return ['type' => 'dir', 'path' => 'test-source'];
             }
@@ -78,7 +75,7 @@ class ReleaseFormDefaultsTest extends TestCase
         {
             public function __construct(private ProviderInterface $provider) {}
 
-            public function for(Server $server): ?ProviderInterface
+            public function for(Server $server): ProviderInterface
             {
                 return $this->provider;
             }
@@ -86,13 +83,19 @@ class ReleaseFormDefaultsTest extends TestCase
         $this->app->instance(ProviderResolver::class, $fakeResolver);
 
         // Mount create page and set server with provider
-        Livewire::test(CreateRelease::class)
-            ->set('data.server_id', $serverWithProvider->id)
-            ->assertSet('data.source_mode', 'provider')
-            ->set('data.provider_version_id', 'v2')
-            ->assertSet('data.version_label', 'Version Two')
-            // Switch to server without provider, ensure source_mode flips
-            ->set('data.server_id', $serverNoProvider->id)
+        Filament::setCurrentPanel('admin');
+
+        /** @var Testable<CreateRelease> $component */
+        $component = Livewire::test(CreateRelease::class);
+
+        $component->set('data.server_id', $serverWithProvider->id)
+            ->assertSet('data.source_mode', 'provider');
+
+        $component->set('data.provider_version_id', 'v2')
+            ->assertSet('data.version_label', 'Version Two');
+
+        // Switch to server without provider, ensure source_mode flips
+        $component->set('data.server_id', $serverNoProvider->id)
             ->assertSet('data.source_mode', 'upload');
     }
 }

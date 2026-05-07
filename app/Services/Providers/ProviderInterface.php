@@ -19,9 +19,7 @@ interface ProviderInterface
      * Returns ['type' => 'zip'|'dir', 'path' => string]
      * where path is a local filesystem path.
      *
-     * @param  string|int  $providerPackId
-     * @param  string|int  $versionId
      * @return array{type: 'zip'|'dir', path: string}
      */
-    public function fetchSource($providerPackId, $versionId): array;
+    public function fetchSource(string|int $providerPackId, string|int $versionId): array;
 }

@@ -9,6 +9,7 @@ use App\Models\OverrideRule;
 use App\Models\Release;
 use App\Models\Server;
 use App\Services\OverrideApplier;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -16,6 +17,36 @@ use Tests\TestCase;
 class OverrideApplierTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function requireDiskContents(FilesystemAdapter $disk, string $path): string
+    {
+        $contents = $disk->get($path);
+
+        $this->assertIsString($contents);
+
+        return $contents;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function encodeJson(array $data): string
+    {
+        return json_encode($data, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeJson(string $json): array
+    {
+        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
+    }
 
     public function test_it_applies_minecraft_version_specific_rules_only_when_matching(): void
     {
@@ -67,8 +98,10 @@ class OverrideApplierTest extends TestCase
         $applier->apply($release, 'source', 'prepared');
 
         $this->assertTrue($disk->exists('prepared/config.txt'));
-        $this->assertEquals('Hello New', $disk->get('prepared/config.txt'));
-        $this->assertStringNotContainsString('WRONG', $disk->get('prepared/config.txt'));
+        $preparedConfig = $this->requireDiskContents($disk, 'prepared/config.txt');
+
+        $this->assertEquals('Hello New', $preparedConfig);
+        $this->assertStringNotContainsString('WRONG', $preparedConfig);
     }
 
     public function test_it_only_applies_unscoped_rules_when_server_has_no_minecraft_version(): void
@@ -121,8 +154,10 @@ class OverrideApplierTest extends TestCase
         $applier->apply($release, 'source', 'prepared');
 
         $this->assertTrue($disk->exists('prepared/config.txt'));
-        $this->assertEquals('Hello New', $disk->get('prepared/config.txt'));
-        $this->assertStringNotContainsString('WRONG', $disk->get('prepared/config.txt'));
+        $preparedConfig = $this->requireDiskContents($disk, 'prepared/config.txt');
+
+        $this->assertEquals('Hello New', $preparedConfig);
+        $this->assertStringNotContainsString('WRONG', $preparedConfig);
     }
 
     public function test_it_applies_file_add_rule(): void
@@ -312,8 +347,8 @@ class OverrideApplierTest extends TestCase
         $applier = new OverrideApplier;
         $applier->apply($release, 'source', 'prepared');
 
-        $this->assertEquals(['key' => 'new'], json_decode($disk->get('prepared/config/app.json'), true));
-        $this->assertEquals(['key' => 'new'], json_decode($disk->get('prepared/settings/web.json'), true));
+        $this->assertEquals(['key' => 'new'], $this->decodeJson($this->requireDiskContents($disk, 'prepared/config/app.json')));
+        $this->assertEquals(['key' => 'new'], $this->decodeJson($this->requireDiskContents($disk, 'prepared/settings/web.json')));
         $this->assertEquals('no change', $disk->get('prepared/other.txt'));
     }
 
@@ -430,8 +465,8 @@ class OverrideApplierTest extends TestCase
         $disk->put('source/mods/mod1.jar', 'content');
 
         // Setup remote files: one that matches and changes, one that matches but doesn't change
-        $disk->put('remote/config/change.json', json_encode(['key' => 'old']));
-        $disk->put('remote/config/nochange.json', json_encode(['key' => 'new']));
+        $disk->put('remote/config/change.json', $this->encodeJson(['key' => 'old']));
+        $disk->put('remote/config/nochange.json', $this->encodeJson(['key' => 'new']));
 
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
@@ -453,7 +488,7 @@ class OverrideApplierTest extends TestCase
 
         // change.json should be copied and modified
         $this->assertTrue($disk->exists('prepared/config/change.json'));
-        $data = json_decode($disk->get('prepared/config/change.json'), true);
+        $data = $this->decodeJson($this->requireDiskContents($disk, 'prepared/config/change.json'));
         $this->assertEquals('new', $data['key']);
 
         // nochange.json should NOT be copied because it already has the value

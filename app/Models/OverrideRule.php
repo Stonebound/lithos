@@ -86,11 +86,11 @@ class OverrideRule extends Model
     /**
      * Get all skip patterns that apply to the given server.
      *
-     * @return array<string>
+     * @return array<int, string>
      */
     public static function getSkipPatternsForServer(Server $server): array
     {
-        return self::query()
+        $patterns = self::query()
             ->where('type', OverrideRuleType::FileSkip)
             ->where('enabled', true)
             ->where(function ($q) use ($server) {
@@ -113,5 +113,7 @@ class OverrideRule extends Model
             ->filter()
             ->unique()
             ->toArray();
+
+        return array_values(array_filter($patterns, static fn (mixed $pattern): bool => is_string($pattern) && $pattern !== ''));
     }
 }

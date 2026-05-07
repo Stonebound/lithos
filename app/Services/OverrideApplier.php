@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Concerns\NormalizesStringValues;
 use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
 
 class OverrideApplier
 {
+    use NormalizesStringValues;
+
     /**
      * Apply overrides to files in $sourceDir, output to $preparedDir.
      */
@@ -49,7 +51,7 @@ class OverrideApplier
                 return preg_match('/^'.$versionPattern.'$/', $release->server->minecraft_version) === 1;
             });
 
-        $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
+        $skipPatterns = array_values(OverrideRule::getSkipPatternsForServer($release->server));
 
         // If we have a remote snapshot, we might want to keep and modify files that aren't in the modpack
         if ($remoteDir) {
@@ -66,7 +68,7 @@ class OverrideApplier
         // Remove skipped files from prepared directory so they aren't even considered for upload
         if (! empty($skipPatterns)) {
             $disk = Storage::disk('local');
-            foreach ($disk->allFiles($preparedDir) as $file) {
+            foreach ($this->localFiles($preparedDir) as $file) {
                 $relative = ltrim(str_replace($preparedDir.'/', '', $file), '/');
                 foreach ($skipPatterns as $pattern) {
                     if (fnmatch($pattern, $relative)) {
@@ -81,15 +83,14 @@ class OverrideApplier
     protected function applyRule(OverrideRule $rule, string $root): void
     {
         if ($rule->type === OverrideRuleType::FileAdd) {
-            $payload = $rule->payload ?? [];
-            $overwrite = (bool) ($payload['overwrite'] ?? true);
-            $files = $payload['files'] ?? [];
+            $payload = $this->payloadArray($rule->payload);
+            $overwrite = $this->boolValue($payload['overwrite'] ?? true);
 
             $disk = Storage::disk('local');
 
-            foreach ($files as $fileData) {
-                $to = (string) ($fileData['to'] ?? '');
-                $fromUpload = (string) (Arr::first((array) ($fileData['from_upload'] ?? [])) ?? '');
+            foreach ($this->fileAddEntries($payload) as $fileData) {
+                $to = $fileData['to'];
+                $fromUpload = $fileData['from_upload'];
 
                 if ($to === '') {
                     continue;
@@ -105,7 +106,7 @@ class OverrideApplier
                     continue;
                 }
 
-                if ($fromUpload !== '') {
+                if ($fromUpload !== null) {
                     if (! $disk->copy($fromUpload, $target)) {
                         copy($disk->path($fromUpload), $disk->path($target));
                     }
@@ -118,10 +119,9 @@ class OverrideApplier
         }
 
         $disk = Storage::disk('local');
-        $iterator = $disk->allFiles($root);
-        $patterns = (array) ($rule->path_patterns ?? []);
+        $patterns = $this->pathPatterns($rule);
 
-        foreach ($iterator as $file) {
+        foreach ($this->localFiles($root) as $file) {
             $relative = ltrim(str_replace($root.'/', '', $file), '/');
             $matched = false;
             foreach ($patterns as $pattern) {
@@ -142,11 +142,11 @@ class OverrideApplier
             }
 
             if ($rule->type === OverrideRuleType::TextReplace) {
-                $this->applyTextReplace($file, $rule->payload);
+                $this->applyTextReplace($file, $this->payloadArray($rule->payload));
             } elseif ($rule->type === OverrideRuleType::JsonPatch) {
-                $this->applyJsonPatch($file, $rule->payload);
+                $this->applyJsonPatch($file, $this->payloadArray($rule->payload));
             } elseif ($rule->type === OverrideRuleType::YamlPatch) {
-                $this->applyYamlPatch($file, $rule->payload);
+                $this->applyYamlPatch($file, $this->payloadArray($rule->payload));
             } elseif ($rule->type === OverrideRuleType::FileRemove) {
                 $disk->delete($file);
             }
@@ -158,11 +158,11 @@ class OverrideApplier
      * and aren't already in the prepared directory (from the modpack source).
      *
      * @param  Collection<int, OverrideRule>  $rules
+     * @param  array<int, string>  $skipPatterns
      */
     protected function copyMatchingRemoteFiles(Collection $rules, string $remoteDir, string $preparedDir, array $skipPatterns): void
     {
         $disk = Storage::disk('local');
-        $remoteFiles = $disk->allFiles($remoteDir);
 
         $contentModifyingTypes = [
             OverrideRuleType::TextReplace,
@@ -170,7 +170,7 @@ class OverrideApplier
             OverrideRuleType::YamlPatch,
         ];
 
-        foreach ($remoteFiles as $remoteFile) {
+        foreach ($this->localFiles($remoteDir) as $remoteFile) {
             $relative = ltrim(str_replace($remoteDir.'/', '', $remoteFile), '/');
 
             // If already in prepared dir, no need to copy
@@ -200,7 +200,7 @@ class OverrideApplier
                     continue;
                 }
 
-                $patterns = (array) ($rule->path_patterns ?? []);
+                $patterns = $this->pathPatterns($rule);
                 foreach ($patterns as $pattern) {
                     if (fnmatch($pattern, $relative)) {
                         if (! $this->wouldModify($rule, $remoteFile)) {
@@ -227,7 +227,7 @@ class OverrideApplier
 
         $disk->makeDirectory($targetDir);
 
-        foreach ($disk->allFiles($sourceDir) as $sourceFile) {
+        foreach ($this->localFiles($sourceDir) as $sourceFile) {
             $relative = ltrim(str_replace($sourceDir.'/', '', $sourceFile), '/');
             $targetFile = $targetDir.'/'.$relative;
             $targetParent = dirname($targetFile);
@@ -244,14 +244,14 @@ class OverrideApplier
         $payloads = $this->normalizeTextReplacePayloads($payload);
         $content = Storage::disk('local')->get($path);
 
-        if (! $content) {
+        if (! is_string($content) || $content === '') {
             return;
         }
 
         foreach ($payloads as $singlePayload) {
-            $search = $singlePayload['search'] ?? '';
-            $replace = $singlePayload['replace'] ?? '';
-            $regex = (bool) ($singlePayload['regex'] ?? false);
+            $search = $singlePayload['search'];
+            $replace = $singlePayload['replace'];
+            $regex = $singlePayload['regex'];
 
             if ($regex) {
                 $content = preg_replace($search, $replace, $content) ?? $content;
@@ -266,30 +266,30 @@ class OverrideApplier
     protected function applyJsonPatch(string $path, array $payload): void
     {
         $content = Storage::disk('local')->get($path);
-        if (! $content) {
+        if (! is_string($content) || $content === '') {
             return;
         }
         $data = json_decode($content, true, flags: JSON_THROW_ON_ERROR);
         if (! is_array($data)) {
             return;
         }
-        $merge = $payload['merge'] ?? [];
+        $merge = $this->mergePayload($payload);
         $data = $this->recursiveMerge($data, $merge);
-        $out = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $out = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         Storage::disk('local')->put($path, $out);
     }
 
     protected function applyYamlPatch(string $path, array $payload): void
     {
         $content = Storage::disk('local')->get($path);
-        if (! $content) {
+        if (! is_string($content) || $content === '') {
             return;
         }
         $data = Yaml::parse($content);
         if (! is_array($data)) {
             return;
         }
-        $merge = $payload['merge'] ?? [];
+        $merge = $this->mergePayload($payload);
         $data = $this->recursiveMerge($data, $merge);
         $out = Yaml::dump($data, 4);
         Storage::disk('local')->put($path, $out);
@@ -313,17 +313,17 @@ class OverrideApplier
         $disk = Storage::disk('local');
         $content = $disk->get($path);
 
-        if (! $content) {
+        if (! is_string($content) || $content === '') {
             return false;
         }
 
         if ($rule->type === OverrideRuleType::TextReplace) {
             $newContent = $content;
 
-            foreach ($this->normalizeTextReplacePayloads($rule->payload ?? []) as $payload) {
-                $search = $payload['search'] ?? '';
-                $replace = $payload['replace'] ?? '';
-                $regex = (bool) ($payload['regex'] ?? false);
+            foreach ($this->normalizeTextReplacePayloads($this->payloadArray($rule->payload)) as $payload) {
+                $search = $payload['search'];
+                $replace = $payload['replace'];
+                $regex = $payload['regex'];
 
                 if ($regex) {
                     $newContent = preg_replace($search, $replace, $newContent) ?? $newContent;
@@ -342,7 +342,7 @@ class OverrideApplier
             if (! is_array($data)) {
                 return false;
             }
-            $merge = $rule->payload['merge'] ?? [];
+            $merge = $this->mergePayload($this->payloadArray($rule->payload));
             $newData = $this->recursiveMerge($data, $merge);
 
             return $data !== $newData;
@@ -357,7 +357,7 @@ class OverrideApplier
             if (! is_array($data)) {
                 return false;
             }
-            $merge = $rule->payload['merge'] ?? [];
+            $merge = $this->mergePayload($this->payloadArray($rule->payload));
             $newData = $this->recursiveMerge($data, $merge);
 
             return $data !== $newData;
@@ -367,7 +367,7 @@ class OverrideApplier
     }
 
     /**
-     * @return array<int, array{search?: mixed, replace?: mixed, regex?: mixed}>
+     * @return list<array{search: string, replace: string, regex: bool}>
      */
     private function normalizeTextReplacePayloads(array $payload): array
     {
@@ -377,10 +377,124 @@ class OverrideApplier
 
         $firstKey = array_key_first($payload);
 
-        if (is_int($firstKey)) {
-            return $payload;
+        $payloads = is_int($firstKey) ? $payload : [$payload];
+
+        $normalized = [];
+
+        foreach ($payloads as $singlePayload) {
+            if (! is_array($singlePayload)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'search' => self::normalizeStringValue($singlePayload['search'] ?? ''),
+                'replace' => self::normalizeStringValue($singlePayload['replace'] ?? ''),
+                'regex' => $this->boolValue($singlePayload['regex'] ?? false),
+            ];
         }
 
-        return [$payload];
+        return $normalized;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function localFiles(string $directory): array
+    {
+        $files = Storage::disk('local')->allFiles($directory);
+
+        $normalized = [];
+
+        foreach ($files as $file) {
+            if (is_string($file)) {
+                $normalized[] = $file;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function pathPatterns(OverrideRule $rule): array
+    {
+        $patterns = $rule->path_patterns;
+
+        $normalized = [];
+
+        foreach ($patterns as $pattern) {
+            if (is_string($pattern) && $pattern !== '') {
+                $normalized[] = $pattern;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<mixed>|null  $payload
+     * @return array<string, mixed>
+     */
+    private function payloadArray(?array $payload): array
+    {
+        if ($payload === null) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $payload */
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return list<array{to: string, from_upload: ?string}>
+     */
+    private function fileAddEntries(array $payload): array
+    {
+        $files = $payload['files'] ?? [];
+
+        if (! is_array($files)) {
+            return [];
+        }
+
+        $entries = [];
+
+        foreach ($files as $fileData) {
+            if (! is_array($fileData)) {
+                continue;
+            }
+
+            $fromUploads = self::normalizeStringList($fileData['from_upload'] ?? []);
+            $entries[] = [
+                'to' => self::normalizeStringValue($fileData['to'] ?? ''),
+                'from_upload' => $fromUploads[0] ?? null,
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     */
+    private function mergePayload(array $payload): array
+    {
+        $merge = $payload['merge'] ?? [];
+
+        return is_array($merge) ? $merge : [];
+    }
+
+    private function boolValue(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return filter_var($value, FILTER_VALIDATE_BOOL);
+        }
+
+        return (bool) $value;
     }
 }

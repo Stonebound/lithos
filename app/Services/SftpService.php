@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\ReleaseLog;
 use App\Models\Server;
+use Illuminate\Contracts\Concurrency\Driver;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\Storage;
 use phpseclib3\Crypt\PublicKeyLoader;
@@ -18,6 +19,10 @@ class SftpService
         return $this->connectFromConfig($this->serverConnectionConfig($server));
     }
 
+    /**
+     * @param  array<int, string>  $includeTopDirs
+     * @param  array<int, string>  $skipPatterns
+     */
     public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
     {
         $items = $sftp->rawlist($remotePath);
@@ -45,7 +50,7 @@ class SftpService
             }
 
             // Use metadata from rawlist to avoid extra network calls
-            $type = $meta['type'] ?? null;
+            $type = $this->remoteEntryType($meta);
             if ($type === 3) { // NET_SFTP_TYPE_SYMLINK
                 continue;
             }
@@ -73,6 +78,10 @@ class SftpService
         }
     }
 
+    /**
+     * @param  array<int, string>  $skipPatterns
+     * @return array{failed_workers: int, connections: int, uploaded_files: int, workers: list<array{worker: int, status: string, uploaded_files: int, first_file: ?string, last_file: ?string, failed_file: ?string, error: ?string}>}
+     */
     public function syncServerDirectory(Server $server, string $localPath, string $remotePath, array $skipPatterns = [], ?int $releaseId = null): array
     {
         $relativeFiles = $this->collectRelativeFiles($localPath, $skipPatterns);
@@ -111,6 +120,7 @@ class SftpService
         }
 
         $serverConfig = $this->serverConnectionConfig($server);
+        /** @var list<callable(): array{worker: int, status: string, uploaded_files: int, first_file: ?string, last_file: ?string, failed_file: ?string, error: ?string}> $tasks */
         $tasks = [];
 
         foreach ($this->chunkRelativeFiles($relativeFiles, $connections) as $index => $chunk) {
@@ -126,7 +136,10 @@ class SftpService
             );
         }
 
-        $results = Concurrency::driver($parallelDriver)->run($tasks);
+        /** @var Driver $driver */
+        $driver = Concurrency::driver($parallelDriver);
+        $rawResults = $driver->run($tasks);
+        $results = array_map($this->normalizeWorkerSummary(...), $rawResults);
         usort($results, fn (array $left, array $right): int => $left['worker'] <=> $right['worker']);
 
         return [
@@ -137,6 +150,10 @@ class SftpService
         ];
     }
 
+    /**
+     * @param  array<int, string>  $skipPatterns
+     * @param  array<int, string>|null  $relativeFiles
+     */
     public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null, ?array $relativeFiles = null): int
     {
         $disk = Storage::disk('local');
@@ -156,8 +173,12 @@ class SftpService
             $remoteDir = dirname($remoteFile);
 
             if (! isset($knownDirs[$remoteDir])) {
-                if (! $sftp->is_dir($remoteDir)) {
-                    if (! $sftp->mkdir($remoteDir, -1, true) && ! $sftp->is_dir($remoteDir)) {
+                $directoryExists = $sftp->is_dir($remoteDir);
+
+                if ($directoryExists === false) {
+                    $created = $sftp->mkdir($remoteDir, -1, true);
+
+                    if ($created === false && $sftp->is_dir($remoteDir) === false) {
                         throw new \RuntimeException('Failed to create remote directory: '.$remoteDir);
                     }
                 }
@@ -176,6 +197,10 @@ class SftpService
         return count($relativeFiles);
     }
 
+    /**
+     * @param  array<int, string>  $skipPatterns
+     * @param  array<int, string>  $includeTopDirs
+     */
     protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], array $includeTopDirs = [], int $depth = 0, string $accumulatedPath = '', ?callable $onProgress = null): void
     {
         $disk = Storage::disk('local');
@@ -205,7 +230,7 @@ class SftpService
                 continue;
             }
 
-            $type = $meta['type'] ?? null;
+            $type = $this->remoteEntryType($meta);
             if ($type === 3) { // NET_SFTP_TYPE_SYMLINK
                 continue;
             }
@@ -223,11 +248,18 @@ class SftpService
         }
     }
 
+    /**
+     * @param  array<int, string>  $includeTopDirs
+     * @param  array<int, string>  $skipPatterns
+     */
     public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = [], array $skipPatterns = [], ?callable $onProgress = null): void
     {
         $this->deleteRemovedFiles($sftp, $localPath, $remotePath, $skipPatterns, $includeTopDirs, 0, '', $onProgress);
     }
 
+    /**
+     * @param  array<int, string>  $skipPatterns
+     */
     protected function shouldSkip(string $path, array $skipPatterns): bool
     {
         foreach ($skipPatterns as $pattern) {
@@ -258,6 +290,11 @@ class SftpService
         return ltrim($normalized, '/');
     }
 
+    /**
+     * @param  array{host: string, port: int, username: string, auth_type: string, password: ?string, private_key_path: ?string}  $serverConfig
+     * @param  array<int, string>  $relativeFiles
+     * @return array{worker: int, status: string, uploaded_files: int, first_file: ?string, last_file: ?string, failed_file: ?string, error: ?string}
+     */
     public function uploadRelativeFileBatch(array $serverConfig, string $localPath, string $remotePath, array $relativeFiles, int $worker, ?int $releaseId = null): array
     {
         try {
@@ -277,15 +314,24 @@ class SftpService
         }
     }
 
+    /**
+     * @param  array<int, string>  $skipPatterns
+     * @return array<int, string>
+     */
     protected function collectRelativeFiles(string $localPath, array $skipPatterns = []): array
     {
         $disk = Storage::disk('local');
         $localRoot = rtrim($disk->path(''), '/');
         $localRel = $this->normalizeLocalPath($localPath, $localRoot);
 
+        /** @var array<int, string> $relativeFiles */
         $relativeFiles = [];
 
         foreach ($disk->allFiles($localRel) as $file) {
+            if (! is_string($file)) {
+                continue;
+            }
+
             $relative = ltrim(str_replace($localRel.'/', '', $file), '/');
 
             if ($this->shouldSkip($relative, $skipPatterns)) {
@@ -300,22 +346,26 @@ class SftpService
         return $relativeFiles;
     }
 
+    /**
+     * @param  array<int, string>  $relativeFiles
+     * @return list<array<int, string>>
+     */
     protected function chunkRelativeFiles(array $relativeFiles, int $connections): array
     {
         $chunkCount = max(1, min($connections, count($relativeFiles)));
         $chunkSize = (int) ceil(count($relativeFiles) / $chunkCount);
 
-        return array_values(array_chunk($relativeFiles, max(1, $chunkSize)));
+        return array_chunk($relativeFiles, max(1, $chunkSize));
     }
 
     protected function parallelUploadConnections(): int
     {
-        return max(1, (int) config('services.sftp.parallel_upload_connections', 10));
+        return max(1, $this->requireInt(config('services.sftp.parallel_upload_connections', 10), 'SFTP parallel upload connections'));
     }
 
     protected function parallelUploadDriver(): string
     {
-        return (string) config('services.sftp.parallel_upload_driver', 'process');
+        return $this->requireString(config('services.sftp.parallel_upload_driver', 'process'), 'SFTP parallel upload driver');
     }
 
     /**
@@ -330,8 +380,8 @@ class SftpService
         $totalFiles = count($relativeFiles);
         $completedFiles = 0;
         $lastLoggedAt = microtime(true);
-        $logEveryFiles = max(1, (int) config('services.sftp.progress_every_files', 100));
-        $logEverySeconds = max(0.0, (float) config('services.sftp.progress_every_seconds', 3));
+        $logEveryFiles = max(1, $this->requireInt(config('services.sftp.progress_every_files', 100), 'SFTP progress file interval'));
+        $logEverySeconds = max(0.0, $this->requireFloat(config('services.sftp.progress_every_seconds', 3), 'SFTP progress time interval'));
 
         return static function (string $action, string $relativePath) use ($releaseId, $worker, $totalFiles, &$completedFiles, &$lastLoggedAt, $logEveryFiles, $logEverySeconds): void {
             $completedFiles++;
@@ -368,12 +418,12 @@ class SftpService
     protected function serverConnectionConfig(Server $server): array
     {
         return [
-            'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'auth_type' => $server->auth_type,
-            'password' => $server->password,
-            'private_key_path' => $server->private_key_path,
+            'host' => $this->requireString($server->host, 'SFTP host'),
+            'port' => $this->requireInt($server->port, 'SFTP port'),
+            'username' => $this->requireString($server->username, 'SFTP username'),
+            'auth_type' => $this->requireString($server->auth_type, 'SFTP auth type'),
+            'password' => $this->nullableString($server->password, 'SFTP password'),
+            'private_key_path' => $this->nullableString($server->private_key_path, 'SFTP private key path'),
         ];
     }
 
@@ -398,7 +448,11 @@ class SftpService
         }
 
         $keyContents = Storage::disk('local')->get($privateKeyPath);
-        $key = PublicKeyLoader::load($keyContents);
+        if (! is_string($keyContents) || $keyContents === '') {
+            throw new \RuntimeException('SFTP key login failed: private key could not be read');
+        }
+
+        $key = PublicKeyLoader::loadPrivateKey($keyContents);
 
         if (! $sftp->login($serverConfig['username'], $key)) {
             throw new \RuntimeException('SFTP key login failed');
@@ -452,5 +506,92 @@ class SftpService
         }
 
         return null;
+    }
+
+    private function requireFloat(mixed $value, string $label): float
+    {
+        if (is_float($value) || is_int($value)) {
+            return (float) $value;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        throw new \RuntimeException($label.' is missing or invalid.');
+    }
+
+    private function remoteEntryType(mixed $meta): ?int
+    {
+        if (! is_array($meta)) {
+            return null;
+        }
+
+        $type = $meta['type'] ?? null;
+
+        if (is_int($type)) {
+            return $type;
+        }
+
+        if (is_numeric($type)) {
+            return (int) $type;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{worker: int, status: string, uploaded_files: int, first_file: ?string, last_file: ?string, failed_file: ?string, error: ?string}
+     */
+    private function normalizeWorkerSummary(mixed $result): array
+    {
+        if (! is_array($result)) {
+            throw new \RuntimeException('Parallel SFTP upload worker returned an invalid result.');
+        }
+
+        return [
+            'worker' => $this->requireInt($result['worker'] ?? null, 'SFTP worker number'),
+            'status' => $this->requireString($result['status'] ?? null, 'SFTP worker status'),
+            'uploaded_files' => $this->requireInt($result['uploaded_files'] ?? null, 'SFTP uploaded file count'),
+            'first_file' => $this->nullableString($result['first_file'] ?? null, 'SFTP first uploaded file'),
+            'last_file' => $this->nullableString($result['last_file'] ?? null, 'SFTP last uploaded file'),
+            'failed_file' => $this->nullableString($result['failed_file'] ?? null, 'SFTP failed file name'),
+            'error' => $this->nullableString($result['error'] ?? null, 'SFTP worker error'),
+        ];
+    }
+
+    private function requireString(mixed $value, string $label): string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        throw new \RuntimeException($label.' is missing or invalid.');
+    }
+
+    private function nullableString(mixed $value, string $label): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $this->requireString($value, $label);
+    }
+
+    private function requireInt(mixed $value, string $label): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        throw new \RuntimeException($label.' is missing or invalid.');
     }
 }

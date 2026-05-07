@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Dns;
 
 use App\Models\SrvRecord;
+use Illuminate\Support\Facades\Config;
 use LKDev\HetznerCloud\HetznerAPIClient;
 use LKDev\HetznerCloud\Models\Zones\Record;
 use LKDev\HetznerCloud\Models\Zones\RRSet;
 use LKDev\HetznerCloud\Models\Zones\Zone;
+use LKDev\HetznerCloud\Models\Zones\Zones;
 use RuntimeException;
 
 class HetznerSrvDnsProvider implements SrvDnsProvider
@@ -27,16 +29,17 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
     public function createRecords(SrvRecord $srvRecord): array
     {
         $zone = $this->getZone();
+        /** @var array<int, string> $recordIds */
         $recordIds = [];
 
-        $recordIds[] = $this->createRrset($zone, $srvRecord, $this->buildRrsetName($srvRecord->subdomain), (string) config('services.dns.base_target'));
+        $recordIds[] = $this->createRrset($zone, $srvRecord, $this->buildRrsetName($srvRecord->subdomain), $this->baseTarget());
 
-        foreach (config('services.dns.additional_subdomains', []) as $prefix) {
+        foreach ($this->additionalSubdomains() as $prefix) {
             $recordIds[] = $this->createRrset(
                 $zone,
                 $srvRecord,
-                $this->buildRrsetName($srvRecord->subdomain, (string) $prefix),
-                (string) (config("services.dns.additional_targets.{$prefix}") ?? config('services.dns.base_target')),
+                $this->buildRrsetName($srvRecord->subdomain, $prefix),
+                $this->additionalTarget($prefix),
             );
         }
 
@@ -86,6 +89,10 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
         $targets = $this->targets();
 
         foreach ($srvRecord->record_ids as $index => $recordId) {
+            if (! is_string($recordId) && ! is_int($recordId)) {
+                continue;
+            }
+
             $rrset = $zone->getRRSetById((string) $recordId);
 
             if ($rrset === null) {
@@ -95,8 +102,8 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
             $rrset->update([
                 'name' => $rrset->name,
                 'type' => $rrset->type,
-                'ttl' => (int) config('services.dns.ttl'),
-                'records' => [new Record($this->buildSrvValue($srvRecord->port, $targets[$index] ?? (string) config('services.dns.base_target')), self::COMMENT)],
+                'ttl' => $this->ttl(),
+                'records' => [new Record($this->buildSrvValue($srvRecord->port, $targets[$index] ?? $this->baseTarget()), self::COMMENT)],
             ]);
         }
     }
@@ -110,6 +117,10 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
         $zone = $this->getZone();
 
         foreach ($srvRecord->record_ids as $recordId) {
+            if (! is_string($recordId) && ! is_int($recordId)) {
+                continue;
+            }
+
             $rrset = $zone->getRRSetById((string) $recordId);
 
             if ($rrset === null) {
@@ -126,10 +137,10 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
             $name,
             'SRV',
             [new Record($this->buildSrvValue($srvRecord->port, $target), self::COMMENT)],
-            (int) config('services.dns.ttl'),
+            $this->ttl(),
         );
 
-        $rrset = $response?->rrset;
+        $rrset = $response?->getResponsePart('rrset');
 
         if (! $rrset instanceof RRSet) {
             throw new RuntimeException('Hetzner DNS API did not return an rrset identifier.');
@@ -140,10 +151,17 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
 
     private function getZone(): Zone
     {
-        $zone = $this->client()->zones()->getByName((string) config('services.dns.base_domain'));
+        $zones = $this->client()->zones();
+
+        if (! $zones instanceof Zones) {
+            throw new RuntimeException('Hetzner DNS zones client is unavailable.');
+        }
+
+        $baseDomain = $this->baseDomain();
+        $zone = $zones->getByName($baseDomain);
 
         if ($zone === null) {
-            throw new RuntimeException('DNS zone not found for domain: '.config('services.dns.base_domain'));
+            throw new RuntimeException('DNS zone not found for domain: '.$baseDomain);
         }
 
         return $zone;
@@ -152,8 +170,8 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
     private function client(): HetznerAPIClient
     {
         return $this->api ?? new HetznerAPIClient(
-            (string) config('services.hetzner.api_token'),
-            (string) config('services.hetzner.base_url', 'https://api.hetzner.cloud/v1/'),
+            $this->apiToken(),
+            $this->apiBaseUrl(),
         );
     }
 
@@ -179,15 +197,15 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
     {
         $rrsets = [[
             'name' => $this->buildRrsetName($srvRecord->subdomain),
-            'ttl' => (int) config('services.dns.ttl'),
-            'value' => $this->buildSrvValue($srvRecord->port, (string) config('services.dns.base_target')),
+            'ttl' => $this->ttl(),
+            'value' => $this->buildSrvValue($srvRecord->port, $this->baseTarget()),
         ]];
 
-        foreach (config('services.dns.additional_subdomains', []) as $prefix) {
+        foreach ($this->additionalSubdomains() as $prefix) {
             $rrsets[] = [
-                'name' => $this->buildRrsetName($srvRecord->subdomain, (string) $prefix),
-                'ttl' => (int) config('services.dns.ttl'),
-                'value' => $this->buildSrvValue($srvRecord->port, (string) (config("services.dns.additional_targets.{$prefix}") ?? config('services.dns.base_target'))),
+                'name' => $this->buildRrsetName($srvRecord->subdomain, $prefix),
+                'ttl' => $this->ttl(),
+                'value' => $this->buildSrvValue($srvRecord->port, $this->additionalTarget($prefix)),
             ];
         }
 
@@ -199,11 +217,14 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
      */
     private function rrsetMatches(RRSet $rrset, array $expectedRrset): bool
     {
+        $record = $rrset->records[0] ?? null;
+
         return $rrset->type === 'SRV'
             && $rrset->name === $expectedRrset['name']
-            && (int) $rrset->ttl === $expectedRrset['ttl']
+            && $rrset->ttl === $expectedRrset['ttl']
             && count($rrset->records) === 1
-            && $this->normalizeSrvValue($rrset->records[0]->value) === $this->normalizeSrvValue($expectedRrset['value']);
+            && $record instanceof Record
+            && $this->normalizeSrvValue($record->value) === $this->normalizeSrvValue($expectedRrset['value']);
     }
 
     private function normalizeSrvValue(string $value): string
@@ -224,12 +245,60 @@ class HetznerSrvDnsProvider implements SrvDnsProvider
      */
     private function targets(): array
     {
-        $targets = [(string) config('services.dns.base_target')];
+        $targets = [$this->baseTarget()];
 
-        foreach (config('services.dns.additional_subdomains', []) as $prefix) {
-            $targets[] = (string) (config("services.dns.additional_targets.{$prefix}") ?? config('services.dns.base_target'));
+        foreach ($this->additionalSubdomains() as $prefix) {
+            $targets[] = $this->additionalTarget($prefix);
         }
 
         return $targets;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function additionalSubdomains(): array
+    {
+        $subdomains = Config::array('services.dns.additional_subdomains', []);
+
+        $normalized = [];
+
+        foreach ($subdomains as $subdomain) {
+            if (is_string($subdomain) && $subdomain !== '') {
+                $normalized[] = $subdomain;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function additionalTarget(string $prefix): string
+    {
+        return Config::string("services.dns.additional_targets.{$prefix}", $this->baseTarget());
+    }
+
+    private function baseTarget(): string
+    {
+        return Config::string('services.dns.base_target');
+    }
+
+    private function baseDomain(): string
+    {
+        return Config::string('services.dns.base_domain');
+    }
+
+    private function apiToken(): string
+    {
+        return Config::string('services.hetzner.api_token');
+    }
+
+    private function apiBaseUrl(): string
+    {
+        return Config::string('services.hetzner.base_url', 'https://api.hetzner.cloud/v1/');
+    }
+
+    private function ttl(): int
+    {
+        return Config::integer('services.dns.ttl');
     }
 }

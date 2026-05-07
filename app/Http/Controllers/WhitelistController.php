@@ -10,6 +10,7 @@ use App\Services\MinecraftApi;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Config;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class WhitelistController extends Controller
@@ -58,12 +59,17 @@ class WhitelistController extends Controller
     {
         $headers = $request->headers;
 
-        $apiUser = config('services.minecraft.api_user_prefix');
+        $apiUser = Config::string('services.minecraft.api_user_prefix', '');
         if ($headers->has('api-user')) {
-            $apiUser .= ': '.$headers->get('api-user');
+            $headerUser = $headers->get('api-user');
+
+            if (is_string($headerUser) && $headerUser !== '') {
+                $apiUser .= ': '.$headerUser;
+            }
         }
 
-        $username = trim((string) $request->input('name'));
+        $inputName = $request->input('name');
+        $username = is_string($inputName) ? trim($inputName) : '';
         if ($username === '') {
             return response()->json(['status' => 'error', 'message' => 'No username provided!'], 422);
         }
@@ -93,7 +99,7 @@ class WhitelistController extends Controller
             'old_values' => null,
             'new_values' => ['username' => $username, 'source' => 'api'],
             'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'user_agent' => $apiUser !== '' ? $apiUser : $request->userAgent(),
         ]);
 
         return response()

@@ -44,7 +44,7 @@ class DownloadBackupZipActionTest extends TestCase
             ->callAction('download-backup-zip')
             ->assertHasNoActionErrors();
 
-        Bus::assertDispatched(PrepareBackupZip::class, function ($job) use ($release, $user) {
+        Bus::assertDispatched(PrepareBackupZip::class, function (PrepareBackupZip $job) use ($release, $user): bool {
             return $job->releaseId === $release->id && $job->userId === $user->id;
         });
     }

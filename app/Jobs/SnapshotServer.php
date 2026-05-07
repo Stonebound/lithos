@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Concerns\NormalizesStringValues;
 use App\Models\OverrideRule;
 use App\Models\Server;
 use App\Models\User;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Storage;
 
 class SnapshotServer implements ShouldQueue
 {
+    use NormalizesStringValues;
     use Queueable;
 
     public function __construct(public int $serverId, public ?int $userId = null) {}
@@ -33,7 +35,7 @@ class SnapshotServer implements ShouldQueue
         $target = 'servers/'.$server->id.'/snapshot';
         Storage::disk('local')->makeDirectory($target);
 
-        $paths = $server->include_paths;
+        $paths = self::normalizeStringList($server->include_paths);
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($server);
 

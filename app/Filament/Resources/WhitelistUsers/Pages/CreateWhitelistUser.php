@@ -17,7 +17,7 @@ class CreateWhitelistUser extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $name = $data['username'] ?? null;
-        if (! $name) {
+        if (! is_string($name) || $name === '') {
             return $data;
         }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Releases;
 
+use App\Concerns\NormalizesStringValues;
 use App\Enums\FileChangeType;
 use App\Enums\ReleaseStatus;
 use App\Filament\Resources\Releases\Pages\CreateRelease;
@@ -31,6 +32,8 @@ use Filament\Tables\Table;
 
 class ReleaseResource extends Resource
 {
+    use NormalizesStringValues;
+
     protected static ?string $model = Release::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRocketLaunch;
@@ -92,7 +95,7 @@ class ReleaseResource extends Resource
                 self::log($release, 'No provider configured for this server.', 'error');
                 throw new \RuntimeException('No provider configured for this server.');
             }
-            $src = $provider->fetchSource($server->provider_pack_id, $providerVersionId);
+            $src = $provider->fetchSource(self::requireProviderPackId($server), $providerVersionId);
             $release->source_type = $src['type'];
             $release->source_path = $src['path'];
             $release->provider_version_id = $providerVersionId;
@@ -115,8 +118,8 @@ class ReleaseResource extends Resource
         self::log($release, 'Importing modpack...');
         /** @var ModpackImporter $importer */
         $importer = app(ModpackImporter::class);
-        $newDir = $importer->import($release, function ($action, $file) use ($release) {
-            self::log($release, "Importing: {$file}");
+        $newDir = $importer->import($release, function (string $action, mixed $file) use ($release): void {
+            self::log($release, 'Importing: '.self::normalizeStringValue($file, 'unknown'));
         });
         $release->extracted_path = $newDir;
         self::log($release, "Modpack imported to: {$newDir}");
@@ -129,7 +132,7 @@ class ReleaseResource extends Resource
 
         $sftp = $sftpSvc->connect($release->server);
 
-        $include = $release->server->include_paths ?? [];
+        $include = self::normalizeStringList($release->server->include_paths);
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
         $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
@@ -140,8 +143,8 @@ class ReleaseResource extends Resource
         $preparedDir = 'modpacks/'.$release->id.'/prepared';
         /** @var OverrideApplier $applier */
         $applier = app(OverrideApplier::class);
-        $applier->apply($release, $newDir, $preparedDir, $remoteDir, function ($action, $name) use ($release) {
-            self::log($release, "Applying rule: {$name}");
+        $applier->apply($release, $newDir, $preparedDir, $remoteDir, function (string $action, mixed $name) use ($release): void {
+            self::log($release, 'Applying rule: '.self::normalizeStringValue($name, 'unknown'));
         });
         $release->prepared_path = $preparedDir;
         self::log($release, "Overrides applied to: {$preparedDir}");
@@ -161,9 +164,9 @@ class ReleaseResource extends Resource
 
         $release->status = ReleaseStatus::Prepared;
         $release->summary_json = [
-            'added' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Added)),
-            'modified' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Modified)),
-            'removed' => count(array_filter($changes, fn ($c) => $c->change_type === FileChangeType::Removed)),
+            'added' => count(array_filter($changes, fn (FileChange $change): bool => $change->change_type === FileChangeType::Added)),
+            'modified' => count(array_filter($changes, fn (FileChange $change): bool => $change->change_type === FileChangeType::Modified)),
+            'removed' => count(array_filter($changes, fn (FileChange $change): bool => $change->change_type === FileChangeType::Removed)),
         ];
         $release->save();
         self::log($release, 'Release preparation completed successfully.');
@@ -196,9 +199,14 @@ class ReleaseResource extends Resource
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
+        $preparedPath = $release->prepared_path;
+
+        if (! is_string($preparedPath) || $preparedPath === '') {
+            throw new \RuntimeException('Release not prepared.');
+        }
 
         self::log($release, 'Syncing directory to remote...');
-        $uploadSummary = $sftpSvc->syncServerDirectory($release->server, $release->prepared_path, $release->server->remote_root_path, $skipPatterns, $release->id);
+        $uploadSummary = $sftpSvc->syncServerDirectory($release->server, $preparedPath, $release->server->remote_root_path, $skipPatterns, $release->id);
 
         foreach ($uploadSummary['workers'] as $workerSummary) {
             $range = $workerSummary['first_file'] && $workerSummary['last_file']
@@ -242,5 +250,16 @@ class ReleaseResource extends Resource
             'provider_current_version' => $release->provider_version_id,
         ]);
         self::log($release, 'Deployment completed successfully.');
+    }
+
+    private static function requireProviderPackId(Server $server): string
+    {
+        $providerPackId = $server->provider_pack_id;
+
+        if (is_string($providerPackId) && $providerPackId !== '') {
+            return $providerPackId;
+        }
+
+        throw new \RuntimeException('Provider pack id is missing for this server.');
     }
 }

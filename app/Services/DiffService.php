@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Storage;
 
 class DiffService
 {
+    /**
+     * @return list<FileChange>
+     */
     public function compute(Release $release, string $oldDir, string $newDir): array
     {
         $oldFiles = $this->mapFiles($oldDir);
@@ -19,6 +22,7 @@ class DiffService
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
 
+        /** @var list<FileChange> $changes */
         $changes = [];
 
         // Added or Modified
@@ -51,6 +55,9 @@ class DiffService
         return $changes;
     }
 
+    /**
+     * @param  array<int, string>  $skipPatterns
+     */
     protected function shouldSkip(string $path, array $skipPatterns): bool
     {
         foreach ($skipPatterns as $pattern) {
@@ -62,12 +69,20 @@ class DiffService
         return false;
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function mapFiles(string $dir): array
     {
         $disk = Storage::disk('local');
 
+        /** @var array<string, string> $result */
         $result = [];
         foreach ($disk->allFiles($dir) as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+
             $relative = ltrim(str_replace($dir.'/', '', $path), '/');
             $result[$relative] = $path;
         }
@@ -139,8 +154,15 @@ class DiffService
     protected function generateDiffSummary(string $oldPath, string $newPath): string
     {
         $disk = Storage::disk('local');
-        $a = explode("\n", rtrim($disk->get($oldPath), "\n"));
-        $b = explode("\n", rtrim($disk->get($newPath), "\n"));
+        $oldContents = $disk->get($oldPath);
+        $newContents = $disk->get($newPath);
+
+        if (! is_string($oldContents) || ! is_string($newContents)) {
+            return 'Unable to read file contents for diff summary.';
+        }
+
+        $a = explode("\n", rtrim($oldContents, "\n"));
+        $b = explode("\n", rtrim($newContents, "\n"));
         $diff = [];
         $max = max(count($a), count($b));
         for ($i = 0; $i < $max; $i++) {

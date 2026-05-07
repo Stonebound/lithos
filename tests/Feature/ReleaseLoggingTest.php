@@ -16,8 +16,10 @@ use App\Services\PterodactylService;
 use App\Services\SftpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Mockery;
+use Mockery\MockInterface;
 use phpseclib3\Net\SFTP;
 use Tests\TestCase;
 
@@ -25,7 +27,7 @@ class ReleaseLoggingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_can_log_messages_to_release()
+    public function test_it_can_log_messages_to_release(): void
     {
         $server = Server::factory()->create();
         $release = Release::factory()->create(['server_id' => $server->id]);
@@ -39,7 +41,7 @@ class ReleaseLoggingTest extends TestCase
         ]);
     }
 
-    public function test_prepare_release_logs_progress()
+    public function test_prepare_release_logs_progress(): void
     {
         Storage::fake('local');
         $server = Server::factory()->create();
@@ -50,21 +52,23 @@ class ReleaseLoggingTest extends TestCase
         ]);
 
         // Mock services to avoid real IO but trigger callbacks
-        $this->mock(ModpackImporter::class, function ($mock) {
-            $mock->shouldReceive('import')->andReturnUsing(function ($r, $callback) {
+        $this->mock(ModpackImporter::class, function (MockInterface $mock): void {
+            $this->expectMock($mock, 'import')->andReturnUsing(function ($r, callable $callback): string {
                 $callback('copy', 'file1.txt');
 
                 return 'modpacks/1/new';
             });
         });
 
-        $this->mock(SftpService::class, function ($mock) {
-            $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('downloadDirectory');
+        $this->mock(SftpService::class, function (MockInterface $mock): void {
+            /** @var SFTP&MockInterface $sftp */
+            $sftp = Mockery::mock(SFTP::class);
+            $this->expectMock($mock, 'connect')->andReturn($sftp);
+            $this->expectMock($mock, 'downloadDirectory');
         });
 
-        $this->mock(OverrideApplier::class, function ($mock) {
-            $mock->shouldReceive('apply')->andReturnUsing(function ($r, $s, $p, $rem, $callback) {
+        $this->mock(OverrideApplier::class, function (MockInterface $mock): void {
+            $this->expectMock($mock, 'apply')->andReturnUsing(function ($r, $s, $p, $rem, callable $callback): void {
                 $callback('rule', 'Test Rule');
             });
         });
@@ -77,7 +81,7 @@ class ReleaseLoggingTest extends TestCase
         $this->assertDatabaseHas('release_logs', ['message' => 'Release preparation completed successfully.']);
     }
 
-    public function test_deploy_release_logs_progress()
+    public function test_deploy_release_logs_progress(): void
     {
         Storage::fake('local');
         $server = Server::factory()->create();
@@ -87,9 +91,11 @@ class ReleaseLoggingTest extends TestCase
             'status' => ReleaseStatus::Prepared,
         ]);
 
-        $this->mock(SftpService::class, function ($mock) {
-            $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('syncServerDirectory')->andReturn([
+        $this->mock(SftpService::class, function (MockInterface $mock): void {
+            /** @var SFTP&MockInterface $sftp */
+            $sftp = Mockery::mock(SFTP::class);
+            $this->expectMock($mock, 'connect')->andReturn($sftp);
+            $this->expectMock($mock, 'syncServerDirectory')->andReturn([
                 'failed_workers' => 0,
                 'connections' => 1,
                 'uploaded_files' => 1,
@@ -105,7 +111,7 @@ class ReleaseLoggingTest extends TestCase
                     ],
                 ],
             ]);
-            $mock->shouldReceive('deleteRemoved')->andReturnUsing(function ($s, $l, $r, $inc, $skip, $callback) {
+            $this->expectMock($mock, 'deleteRemoved')->andReturnUsing(function ($s, $l, $r, $inc, $skip, callable $callback): void {
                 $callback('delete', 'deleted_file.txt');
             });
         });
@@ -122,7 +128,7 @@ class ReleaseLoggingTest extends TestCase
         $this->assertDatabaseHas('release_logs', ['message' => 'Deployment completed successfully.']);
     }
 
-    public function test_deploy_release_checks_server_status_with_pterodactyl()
+    public function test_deploy_release_checks_server_status_with_pterodactyl(): void
     {
         Storage::fake('local');
         $server = Server::factory()->create();
@@ -132,9 +138,11 @@ class ReleaseLoggingTest extends TestCase
             'status' => ReleaseStatus::Prepared,
         ]);
 
-        $this->mock(SftpService::class, function ($mock) {
-            $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('syncServerDirectory')->andReturn([
+        $this->mock(SftpService::class, function (MockInterface $mock): void {
+            /** @var SFTP&MockInterface $sftp */
+            $sftp = Mockery::mock(SFTP::class);
+            $this->expectMock($mock, 'connect')->andReturn($sftp);
+            $this->expectMock($mock, 'syncServerDirectory')->andReturn([
                 'failed_workers' => 0,
                 'connections' => 1,
                 'uploaded_files' => 1,
@@ -150,12 +158,12 @@ class ReleaseLoggingTest extends TestCase
                     ],
                 ],
             ]);
-            $mock->shouldReceive('deleteRemoved');
+            $this->expectMock($mock, 'deleteRemoved');
         });
 
-        $this->mock(PterodactylService::class, function ($mock) {
-            $mock->shouldReceive('isPterodactylServer')->andReturn(true);
-            $mock->shouldReceive('stopServerIfRunning')->andReturn(true);
+        $this->mock(PterodactylService::class, function (MockInterface $mock): void {
+            $this->expectMock($mock, 'isPterodactylServer')->andReturn(true);
+            $this->expectMock($mock, 'stopServerIfRunning')->andReturn(true);
         });
 
         ReleaseResource::deployRelease($release);
@@ -166,7 +174,7 @@ class ReleaseLoggingTest extends TestCase
         $this->assertDatabaseHas('release_logs', ['message' => 'Worker 1 uploaded 1 files (uploaded_file.txt -> uploaded_file.txt)']);
     }
 
-    public function test_deploy_release_skips_pterodactyl_when_not_configured()
+    public function test_deploy_release_skips_pterodactyl_when_not_configured(): void
     {
         Storage::fake('local');
         $server = Server::factory()->create();
@@ -176,9 +184,11 @@ class ReleaseLoggingTest extends TestCase
             'status' => ReleaseStatus::Prepared,
         ]);
 
-        $this->mock(SftpService::class, function ($mock) {
-            $mock->shouldReceive('connect')->andReturn(Mockery::mock(SFTP::class));
-            $mock->shouldReceive('syncServerDirectory')->andReturn([
+        $this->mock(SftpService::class, function (MockInterface $mock): void {
+            /** @var SFTP&MockInterface $sftp */
+            $sftp = Mockery::mock(SFTP::class);
+            $this->expectMock($mock, 'connect')->andReturn($sftp);
+            $this->expectMock($mock, 'syncServerDirectory')->andReturn([
                 'failed_workers' => 0,
                 'connections' => 1,
                 'uploaded_files' => 1,
@@ -194,11 +204,11 @@ class ReleaseLoggingTest extends TestCase
                     ],
                 ],
             ]);
-            $mock->shouldReceive('deleteRemoved');
+            $this->expectMock($mock, 'deleteRemoved');
         });
 
-        $this->mock(PterodactylService::class, function ($mock) {
-            $mock->shouldReceive('isPterodactylServer')->andReturn(false);
+        $this->mock(PterodactylService::class, function (MockInterface $mock): void {
+            $this->expectMock($mock, 'isPterodactylServer')->andReturn(false);
             $mock->shouldNotReceive('stopServerIfRunning');
         });
 
@@ -209,7 +219,7 @@ class ReleaseLoggingTest extends TestCase
         $this->assertDatabaseHas('release_logs', ['message' => 'Worker 1 uploaded 1 files (uploaded_file.txt -> uploaded_file.txt)']);
     }
 
-    public function test_release_logs_component_shows_logs()
+    public function test_release_logs_component_shows_logs(): void
     {
         $user = User::factory()->create();
         $server = Server::factory()->create();
@@ -218,11 +228,14 @@ class ReleaseLoggingTest extends TestCase
         $release->logs()->create(['message' => 'Log 1', 'level' => 'info']);
         $release->logs()->create(['message' => 'Log 2', 'level' => 'error']);
 
-        Livewire::actingAs($user)
-            ->test(ReleaseLogs::class, ['release' => $release])
-            ->assertSee('Log 1')
-            ->assertSee('INFO')
-            ->assertSee('Log 2')
-            ->assertSee('ERROR');
+        Livewire::actingAs($user);
+
+        /** @var Testable<ReleaseLogs> $component */
+        $component = Livewire::test(ReleaseLogs::class, ['release' => $release]);
+
+        $component->assertSee('Log 1');
+        $component->assertSee('INFO');
+        $component->assertSee('Log 2');
+        $component->assertSee('ERROR');
     }
 }

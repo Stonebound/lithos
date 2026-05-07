@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Concerns\NormalizesStringValues;
 use App\Enums\ReleaseStatus;
 use App\Models\Release;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CleanupOldReleases implements ShouldQueue
 {
+    use NormalizesStringValues;
     use Queueable;
 
     public int $timeout = 3600;
@@ -77,14 +79,14 @@ class CleanupOldReleases implements ShouldQueue
             return;
         }
 
-        foreach ($disk->allFiles($base) as $f) {
+        foreach (self::normalizeStringList($disk->allFiles($base)) as $f) {
             $disk->delete($f);
         }
 
-        foreach ($disk->directories($base) as $dir) {
+        foreach (self::normalizeStringList($disk->directories($base)) as $dir) {
             // get timestamp from the files in the directory; if all files are older than cutoff, delete
             $old = true;
-            $files = $disk->allFiles($dir);
+            $files = self::normalizeStringList($disk->allFiles($dir));
 
             if (empty($files)) {
                 $old = true;
@@ -94,7 +96,13 @@ class CleanupOldReleases implements ShouldQueue
                     if (! file_exists($path)) {
                         continue;
                     }
-                    $mtime = Carbon::createFromTimestamp(filemtime($path));
+                    $timestamp = filemtime($path);
+
+                    if ($timestamp === false) {
+                        continue;
+                    }
+
+                    $mtime = Carbon::createFromTimestamp($timestamp);
                     if ($mtime->greaterThanOrEqualTo($cutoff)) {
                         $old = false;
                         break;

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Dns;
 
+use App\Concerns\NormalizesRecordLists;
+use App\Concerns\NormalizesStringValues;
 use App\Models\SrvRecord;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Config;
 use RuntimeException;
 use ToshY\BunnyNet\BunnyHttpClient;
 use ToshY\BunnyNet\Enum\Endpoint;
@@ -17,13 +20,16 @@ use ToshY\BunnyNet\Model\Api\Core\DnsZone\UpdateDnsRecord;
 
 class BunnySrvDnsProvider implements SrvDnsProvider
 {
+    use NormalizesRecordLists;
+    use NormalizesStringValues;
+
     private readonly BunnyHttpClient $httpClient;
 
     public function __construct(?Client $client = null)
     {
         $this->httpClient = new BunnyHttpClient(
             client: $client ?? app(Client::class),
-            apiKey: (string) config('services.bunnynet.api_key'),
+            apiKey: $this->apiKey(),
             baseUrl: Endpoint::BASE,
         );
     }
@@ -36,17 +42,18 @@ class BunnySrvDnsProvider implements SrvDnsProvider
     public function createRecords(SrvRecord $srvRecord): array
     {
         $zoneId = $this->getZoneId();
+        /** @var array<int, int> $recordIds */
         $recordIds = [];
 
-        $recordIds[] = $this->addRecord($zoneId, $srvRecord, $srvRecord->subdomain, (string) config('services.dns.base_target'));
+        $recordIds[] = $this->addRecord($zoneId, $srvRecord, $srvRecord->subdomain, $this->baseTarget());
 
-        foreach (config('services.dns.additional_subdomains', []) as $prefix) {
+        foreach ($this->additionalSubdomains() as $prefix) {
             $recordIds[] = $this->addRecord(
                 $zoneId,
                 $srvRecord,
                 $srvRecord->subdomain,
-                (string) (config("services.dns.additional_targets.{$prefix}") ?? config('services.dns.base_target')),
-                (string) $prefix,
+                $this->additionalTarget($prefix),
+                $prefix,
             );
         }
 
@@ -73,7 +80,7 @@ class BunnySrvDnsProvider implements SrvDnsProvider
 
                 $matchedIndex = $index;
                 $usedIndexes[] = $index;
-                $matches[] = (int) $record['Id'];
+                $matches[] = $this->requireInt($record['Id'] ?? null, 'Bunny DNS record id');
 
                 break;
             }
@@ -95,6 +102,10 @@ class BunnySrvDnsProvider implements SrvDnsProvider
         $zoneId = $this->getZoneId();
 
         foreach ($srvRecord->record_ids as $recordId) {
+            if (! is_int($recordId) && ! is_string($recordId) && ! is_numeric($recordId)) {
+                continue;
+            }
+
             $model = new UpdateDnsRecord($zoneId, (int) $recordId, [
                 'Port' => $srvRecord->port,
             ]);
@@ -111,6 +122,10 @@ class BunnySrvDnsProvider implements SrvDnsProvider
         $zoneId = $this->getZoneId();
 
         foreach ($srvRecord->record_ids as $recordId) {
+            if (! is_int($recordId) && ! is_string($recordId) && ! is_numeric($recordId)) {
+                continue;
+            }
+
             $model = new DeleteDnsRecord($zoneId, (int) $recordId);
             $this->httpClient->request($model);
         }
@@ -118,19 +133,19 @@ class BunnySrvDnsProvider implements SrvDnsProvider
 
     private function getZoneId(): int
     {
-        $domain = (string) config('services.dns.base_domain');
+        $domain = $this->baseDomain();
 
         $model = new ListDnsZones([
             'page' => 1,
             'perPage' => 10,
             'search' => $domain,
         ]);
-        $response = $this->httpClient->request($model);
-        $zones = $response->getContents()['Items'] ?? [];
+        $contents = $this->responseContents($this->httpClient->request($model));
+        $zones = self::normalizeRecordList($contents['Items'] ?? []);
 
         foreach ($zones as $zone) {
             if (($zone['Domain'] ?? null) === $domain) {
-                return (int) $zone['Id'];
+                return $this->requireInt($zone['Id'] ?? null, 'Bunny DNS zone id');
             }
         }
 
@@ -148,12 +163,12 @@ class BunnySrvDnsProvider implements SrvDnsProvider
             'Port' => $srvRecord->port,
             'Priority' => 0,
             'Weight' => 5,
-            'Ttl' => (int) config('services.dns.ttl'),
+            'Ttl' => $this->ttl(),
         ]);
 
-        $response = $this->httpClient->request($model);
+        $contents = $this->responseContents($this->httpClient->request($model));
 
-        return (int) $response->getContents()['Id'];
+        return $this->requireInt($contents['Id'] ?? null, 'Bunny DNS record id');
     }
 
     /**
@@ -161,9 +176,9 @@ class BunnySrvDnsProvider implements SrvDnsProvider
      */
     private function getZoneRecords(): array
     {
-        $response = $this->httpClient->request(new GetDnsZone($this->getZoneId()));
+        $contents = $this->responseContents($this->httpClient->request(new GetDnsZone($this->getZoneId())));
 
-        return $response->getContents()['Records'] ?? [];
+        return self::normalizeRecordList($contents['Records'] ?? []);
     }
 
     /**
@@ -173,21 +188,21 @@ class BunnySrvDnsProvider implements SrvDnsProvider
     {
         $records = [[
             'name' => $this->normalizeName('_minecraft._tcp.'.$srvRecord->subdomain),
-            'value' => $this->normalizeValue((string) config('services.dns.base_target')),
+            'value' => $this->normalizeValue($this->baseTarget()),
             'port' => $srvRecord->port,
             'priority' => 0,
             'weight' => 5,
-            'ttl' => (int) config('services.dns.ttl'),
+            'ttl' => $this->ttl(),
         ]];
 
-        foreach (config('services.dns.additional_subdomains', []) as $prefix) {
+        foreach ($this->additionalSubdomains() as $prefix) {
             $records[] = [
-                'name' => $this->normalizeName('_minecraft._tcp.'.$srvRecord->subdomain.'.'.(string) $prefix),
-                'value' => $this->normalizeValue((string) (config("services.dns.additional_targets.{$prefix}") ?? config('services.dns.base_target'))),
+                'name' => $this->normalizeName('_minecraft._tcp.'.$srvRecord->subdomain.'.'.$prefix),
+                'value' => $this->normalizeValue($this->additionalTarget($prefix)),
                 'port' => $srvRecord->port,
                 'priority' => 0,
                 'weight' => 5,
-                'ttl' => (int) config('services.dns.ttl'),
+                'ttl' => $this->ttl(),
             ];
         }
 
@@ -200,12 +215,12 @@ class BunnySrvDnsProvider implements SrvDnsProvider
      */
     private function recordMatches(array $record, array $expectedRecord): bool
     {
-        return $this->normalizeName((string) ($record['Name'] ?? '')) === $expectedRecord['name']
-            && $this->normalizeValue((string) ($record['Value'] ?? '')) === $expectedRecord['value']
-            && (int) ($record['Port'] ?? 0) === $expectedRecord['port']
-            && (int) ($record['Priority'] ?? 0) === $expectedRecord['priority']
-            && (int) ($record['Weight'] ?? 0) === $expectedRecord['weight']
-            && (int) ($record['Ttl'] ?? 0) === $expectedRecord['ttl'];
+        return $this->normalizeName(self::normalizeStringValue($record['Name'] ?? null)) === $expectedRecord['name']
+            && $this->normalizeValue(self::normalizeStringValue($record['Value'] ?? null)) === $expectedRecord['value']
+            && $this->intValue($record['Port'] ?? null) === $expectedRecord['port']
+            && $this->intValue($record['Priority'] ?? null) === $expectedRecord['priority']
+            && $this->intValue($record['Weight'] ?? null) === $expectedRecord['weight']
+            && $this->intValue($record['Ttl'] ?? null) === $expectedRecord['ttl'];
     }
 
     private function normalizeName(string $name): string
@@ -216,5 +231,93 @@ class BunnySrvDnsProvider implements SrvDnsProvider
     private function normalizeValue(string $value): string
     {
         return rtrim($value, '.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function responseContents(mixed $response): array
+    {
+        if (! is_object($response) || ! method_exists($response, 'getContents')) {
+            throw new RuntimeException('Bunny DNS API returned an invalid response object.');
+        }
+
+        $contents = $response->getContents();
+
+        if (! is_array($contents)) {
+            throw new RuntimeException('Bunny DNS API returned an invalid response payload.');
+        }
+
+        /** @var array<string, mixed> $contents */
+        return $contents;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function additionalSubdomains(): array
+    {
+        $subdomains = Config::array('services.dns.additional_subdomains', []);
+
+        $normalized = [];
+
+        foreach ($subdomains as $subdomain) {
+            if (is_string($subdomain) && $subdomain !== '') {
+                $normalized[] = $subdomain;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function additionalTarget(string $prefix): string
+    {
+        return Config::string("services.dns.additional_targets.{$prefix}", $this->baseTarget());
+    }
+
+    private function baseTarget(): string
+    {
+        return Config::string('services.dns.base_target');
+    }
+
+    private function baseDomain(): string
+    {
+        return Config::string('services.dns.base_domain');
+    }
+
+    private function apiKey(): string
+    {
+        return Config::string('services.bunnynet.api_key');
+    }
+
+    private function ttl(): int
+    {
+        return Config::integer('services.dns.ttl');
+    }
+
+    private function requireInt(mixed $value, string $label): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        throw new RuntimeException($label.' is missing or invalid.');
+    }
+
+    private function intValue(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        return 0;
     }
 }

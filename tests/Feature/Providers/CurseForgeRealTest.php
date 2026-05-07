@@ -16,7 +16,7 @@ class CurseForgeRealTest extends TestCase
 
     public function test_real_curseforge_pack_fetches_zip(): void
     {
-        if (! filter_var(env('RUN_EXTERNAL_TESTS'), FILTER_VALIDATE_BOOL)) {
+        if (! filter_var(getenv('RUN_EXTERNAL_TESTS') ?: '', FILTER_VALIDATE_BOOL)) {
             $this->markTestSkipped('External tests disabled. Set RUN_EXTERNAL_TESTS=true to run.');
         }
 
@@ -39,12 +39,14 @@ class CurseForgeRealTest extends TestCase
         ]);
 
         $provider = new CurseForgeProvider;
-        $versions = $provider->listVersions($server->provider_pack_id);
-        $this->assertIsArray($versions);
+        $versions = $provider->listVersions((string) $projectId);
         $this->assertNotEmpty($versions, 'No versions returned for CurseForge project');
 
-        $versionId = $versions[0]['id'];
-        $src = $provider->fetchSource($server->provider_pack_id, $versionId);
+        /** @var array{id: int|string, name: string} $version */
+        $version = $versions[0];
+
+        $versionId = $version['id'];
+        $src = $provider->fetchSource((string) $projectId, $versionId);
         $this->assertSame('zip', $src['type']);
         $this->assertFileExists($src['path']);
     }

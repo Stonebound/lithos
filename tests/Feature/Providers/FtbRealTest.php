@@ -15,7 +15,7 @@ class FtbRealTest extends TestCase
 
     public function test_real_ftb_pack_fetches_directory(): void
     {
-        if (! filter_var(env('RUN_EXTERNAL_TESTS'), FILTER_VALIDATE_BOOL)) {
+        if (! filter_var(getenv('RUN_EXTERNAL_TESTS') ?: '', FILTER_VALIDATE_BOOL)) {
             $this->markTestSkipped('External tests disabled. Set RUN_EXTERNAL_TESTS=true to run.');
         }
 
@@ -35,12 +35,14 @@ class FtbRealTest extends TestCase
         ]);
 
         $provider = new FtbProvider;
-        $versions = $provider->listVersions($server->provider_pack_id);
-        $this->assertIsArray($versions);
+        $versions = $provider->listVersions((string) $packId);
         $this->assertNotEmpty($versions, 'No versions returned for FTB pack');
 
-        $versionId = $versions[0]['id'] ?? $versions[0]['name'];
-        $src = $provider->fetchSource($server->provider_pack_id, $versionId);
+        /** @var array{id: int|string, name: string} $version */
+        $version = $versions[0];
+
+        $versionId = $version['id'];
+        $src = $provider->fetchSource((string) $packId, $versionId);
         $this->assertSame('dir', $src['type']);
         $this->assertDirectoryExists($src['path']);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Servers\Pages;
 
+use App\Filament\Concerns\HasAuthUserId;
 use App\Filament\Resources\Servers\ServerResource;
 use App\Jobs\SnapshotServer;
 use App\Models\Server;
@@ -12,10 +13,11 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Support\Facades\Auth;
 
 class EditServer extends EditRecord
 {
+    use HasAuthUserId;
+
     protected static string $resource = ServerResource::class;
 
     protected function getHeaderActions(): array
@@ -49,7 +51,7 @@ class EditServer extends EditRecord
                 ->action(function (): void {
                     /** @var Server $server */
                     $server = $this->record;
-                    $userId = Auth::id();
+                    $userId = self::authUserId();
                     SnapshotServer::dispatch($server->id, $userId);
                     Notification::make()
                         ->title('Snapshot queued')

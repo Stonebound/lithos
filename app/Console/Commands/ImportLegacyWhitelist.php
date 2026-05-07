@@ -7,8 +7,10 @@ namespace App\Console\Commands;
 use App\Models\AuditLog;
 use App\Models\WhitelistUser;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 
 class ImportLegacyWhitelist extends Command
 {
@@ -46,7 +48,7 @@ class ImportLegacyWhitelist extends Command
         // Import whitelist.json entries first (source of truth)
         $this->info('Importing whitelist.json entries...');
 
-        $json = json_decode(file_get_contents($path), true, JSON_THROW_ON_ERROR);
+        $json = json_decode($this->readFileContents($path), true, 512, JSON_THROW_ON_ERROR);
         if (! is_array($json)) {
             $this->error('Invalid JSON file');
 
@@ -55,6 +57,10 @@ class ImportLegacyWhitelist extends Command
 
         DB::transaction(function () use ($json) {
             foreach ($json as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
                 $uuid = $entry['uuid'] ?? null;
                 $name = $entry['name'] ?? null;
                 if (! $uuid) {
@@ -72,7 +78,7 @@ class ImportLegacyWhitelist extends Command
 
         $this->info('Imported whitelist.json entries. Now importing logs (only for whitelist users)...');
 
-        $files = glob($logDir.DIRECTORY_SEPARATOR.'*.log');
+        $files = $this->globFiles($logDir.DIRECTORY_SEPARATOR.'*.log');
         foreach ($files as $file) {
             $this->importLogFile($file);
         }
@@ -101,20 +107,26 @@ class ImportLegacyWhitelist extends Command
 
             // Update the user's created_at (and leave updated_at alone). Use model saving but disable timestamps.
             $user->timestamps = false;
-            $user->created_at = $first ?: null;
+            $user->created_at = $this->auditTimestamp($first);
             $user->save();
         }
     }
 
     protected function importLogFile(string $file): void
     {
-        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $lines = $this->fileLines($file);
         foreach ($lines as $line) {
             // Example line format: [12:40:14] POST ... - phit(91.10.191.127): Added notch - 069a79f4-... to the whitelist
             if (preg_match('/^\[(?<time>[^\]]+)\] .* - (?<actor>[^\(]+)\((?<ip>[^\)]+)\): (?<action>Added|Removed) (?<name>[^ -]+) - (?<uuid>[0-9a-fA-F\-]+) /', $line, $m)) {
                 $time = $m['time'];
                 $date = $this->dateFromFilename($file);
-                $datetime = date('Y-m-d H:i:s', strtotime($date.' '.$time));
+                $timestamp = strtotime($date.' '.$time);
+
+                if ($timestamp === false) {
+                    continue;
+                }
+
+                $datetime = date('Y-m-d H:i:s', $timestamp);
 
                 $actor = trim($m['actor']);
                 $ip = $m['ip'];
@@ -150,6 +162,62 @@ class ImportLegacyWhitelist extends Command
             return $m['d'];
         }
 
-        throw new \RuntimeException("Could not extract date from filename: {$file}");
+        throw new RuntimeException("Could not extract date from filename: {$file}");
+    }
+
+    private function readFileContents(string $path): string
+    {
+        $contents = file_get_contents($path);
+
+        if ($contents === false) {
+            throw new RuntimeException("Unable to read file: {$path}");
+        }
+
+        return $contents;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function globFiles(string $pattern): array
+    {
+        $files = glob($pattern);
+
+        if ($files === false) {
+            return [];
+        }
+
+        return $files;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function fileLines(string $file): array
+    {
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        if ($lines === false) {
+            return [];
+        }
+
+        return $lines;
+    }
+
+    private function auditTimestamp(mixed $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if (is_string($value) || is_int($value) || is_float($value)) {
+            return Carbon::parse($value);
+        }
+
+        return null;
     }
 }

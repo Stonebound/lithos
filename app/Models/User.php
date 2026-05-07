@@ -122,7 +122,13 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      */
     public function getAppAuthenticationRecoveryCodes(): ?array
     {
-        return $this->app_authentication_recovery_codes;
+        $codes = $this->app_authentication_recovery_codes;
+
+        if (! is_array($codes)) {
+            return null;
+        }
+
+        return array_values(array_filter($codes, static fn (mixed $code): bool => is_string($code)));
     }
 
     /**

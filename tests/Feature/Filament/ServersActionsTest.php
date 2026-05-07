@@ -58,13 +58,23 @@ class ServersActionsTest extends TestCase
                 $localRel = 'test-server-local/'.ltrim(str_replace($root, '', $localPath), '/');
                 Storage::disk('local')->makeDirectory($localRel);
                 foreach (Storage::disk('local')->allFiles($remoteRel) as $file) {
+                    if (! is_string($file)) {
+                        continue;
+                    }
+
                     $relative = ltrim(str_replace($remoteRel.'/', '', $file), '/');
                     $targetRel = $localRel.'/'.($relative ?: basename($file));
                     $dir = dirname($targetRel);
                     if ($dir !== '.' && ! Storage::disk('local')->exists($dir)) {
                         Storage::disk('local')->makeDirectory($dir);
                     }
-                    Storage::disk('local')->put($targetRel, Storage::disk('local')->get($file));
+
+                    $contents = Storage::disk('local')->get($file);
+                    if (! is_string($contents)) {
+                        continue;
+                    }
+
+                    Storage::disk('local')->put($targetRel, $contents);
                 }
             }
         };
