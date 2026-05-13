@@ -17,7 +17,11 @@ use App\Observers\SrvRecordObserver;
 use App\Observers\UserObserver;
 use App\Observers\WhitelistUserObserver;
 use App\Services\PhpUploadLimit;
+use App\Utils\ForeverProcessFactory;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Concurrency\ConcurrencyManager;
+use Illuminate\Concurrency\ProcessDriver;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -28,7 +32,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->afterResolving(ConcurrencyManager::class, function (ConcurrencyManager $manager): void {
+            $manager->extend('forever-process', fn (Application $app): ProcessDriver => new ProcessDriver(
+                $app->make(ForeverProcessFactory::class),
+            ));
+        });
     }
 
     /**

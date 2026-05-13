@@ -411,9 +411,9 @@ class SftpServiceTest extends TestCase
         Storage::disk('local')->put('sync/gamma.txt', 'gamma');
 
         config()->set('services.sftp.parallel_upload_connections', 2);
-        config()->set('services.sftp.parallel_upload_driver', 'process');
+        config()->set('services.sftp.parallel_upload_driver', 'forever-process');
 
-        Concurrency::shouldReceive('driver')->once()->with('process')->andReturnSelf();
+        Concurrency::shouldReceive('driver')->once()->with('forever-process')->andReturnSelf();
         Concurrency::shouldReceive('run')
             ->once()
             ->with(Mockery::on(fn (array $tasks): bool => count($tasks) === 2))
@@ -444,7 +444,7 @@ class SftpServiceTest extends TestCase
         Storage::disk('local')->put('sync/beta.txt', 'beta');
 
         config()->set('services.sftp.parallel_upload_connections', 2);
-        config()->set('services.sftp.parallel_upload_driver', 'process');
+        config()->set('services.sftp.parallel_upload_driver', 'forever-process');
 
         /** @var SftpService&MockInterface $service */
         $service = Mockery::mock(SftpService::class)->makePartial()->shouldAllowMockingProtectedMethods();
@@ -470,7 +470,7 @@ class SftpServiceTest extends TestCase
                 'error' => null,
             ]);
 
-        Concurrency::shouldReceive('driver')->once()->with('process')->andReturnSelf();
+        Concurrency::shouldReceive('driver')->once()->with('forever-process')->andReturnSelf();
         Concurrency::shouldReceive('run')
             ->once()
             ->andReturnUsing(function (array $tasks): array {
