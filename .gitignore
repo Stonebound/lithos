@@ -11,6 +11,7 @@
 /.github/copilot*
 /.github/skills
 /.idea
+/.mcp.json
 /.nova
 /.phpunit.cache
 /.vscode
