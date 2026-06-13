@@ -11,7 +11,7 @@ A Laravel 12 application for preparing and deploying Minecraft modpack releases 
 - Download modpacks from CurseForge or Feed The Beast
 
 ## Stack & Versions
-- PHP: 8.3+
+- PHP: 8.4+
 - Laravel: 12
 - Filament: v4
 

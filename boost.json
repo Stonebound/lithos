@@ -1,6 +1,6 @@
 {
     "agents": [
-        "copilot"
+        "claude_code"
     ],
     "cloud": false,
     "guidelines": true,
@@ -12,6 +12,7 @@
     "sail": false,
     "skills": [
         "laravel-best-practices",
+        "livewire-development",
         "tailwindcss-development"
     ]
 }
