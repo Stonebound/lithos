@@ -7,8 +7,10 @@ namespace App\Services;
 use App\Models\ReleaseLog;
 use App\Models\Server;
 use Illuminate\Contracts\Concurrency\Driver;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\Net\SFTP;
 
@@ -125,12 +127,15 @@ class SftpService
 
         foreach ($this->chunkRelativeFiles($relativeFiles, $connections) as $index => $chunk) {
             $worker = $index + 1;
+            $chunkKey = 'sftp_chunk_'.Str::uuid()->toString();
+
+            Cache::put($chunkKey, $chunk, now()->addHours(2));
 
             $tasks[] = static fn (): array => app(self::class)->uploadRelativeFileBatch(
                 $serverConfig,
                 $localPath,
                 $remotePath,
-                $chunk,
+                Cache::pull($chunkKey) ?? [],
                 $worker,
                 $releaseId,
             );
