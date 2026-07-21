@@ -549,9 +549,9 @@ class SftpServiceTest extends TestCase
             ->once()
             ->with($sftp, 'sync', 'remote/path', [], Mockery::type('callable'), ['alpha.txt', 'beta.txt', 'gamma.txt'])
             ->andReturnUsing(function ($sftp, string $localPath, string $remotePath, array $skipPatterns, callable $onProgress, array $relativeFiles): int {
-                $onProgress('upload', 'alpha.txt');
-                $onProgress('upload', 'beta.txt');
-                $onProgress('upload', 'gamma.txt');
+                $onProgress('alpha.txt');
+                $onProgress('beta.txt');
+                $onProgress('gamma.txt');
 
                 return 3;
             });

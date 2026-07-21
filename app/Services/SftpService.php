@@ -135,7 +135,7 @@ class SftpService
                 $serverConfig,
                 $localPath,
                 $remotePath,
-                Cache::pull($chunkKey) ?? [],
+                app(self::class)->pullChunkFromCache($chunkKey),
                 $worker,
                 $releaseId,
             );
@@ -195,7 +195,7 @@ class SftpService
             }
 
             if ($onProgress) {
-                $onProgress('upload', $relative);
+                $onProgress($relative);
             }
         }
 
@@ -244,7 +244,7 @@ class SftpService
 
             if (! $disk->exists($localItem)) {
                 if ($onProgress) {
-                    $onProgress('delete', $currentRelative);
+                    $onProgress($currentRelative);
                 }
                 $sftp->delete($remoteItem, true);
             } elseif ($type === 2) { // NET_SFTP_TYPE_DIRECTORY
@@ -282,6 +282,20 @@ class SftpService
             // If under storage/app, use Storage to create directory
             Storage::disk('local')->makeDirectory($dir);
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function pullChunkFromCache(string $key): array
+    {
+        $chunk = Cache::pull($key);
+
+        if (! is_array($chunk)) {
+            return [];
+        }
+
+        return array_values(array_filter($chunk, 'is_string'));
     }
 
     private function normalizeLocalPath(string $path, string $diskRoot): string
@@ -388,7 +402,7 @@ class SftpService
         $logEveryFiles = max(1, $this->requireInt(config('services.sftp.progress_every_files', 100), 'SFTP progress file interval'));
         $logEverySeconds = max(0.0, $this->requireFloat(config('services.sftp.progress_every_seconds', 3), 'SFTP progress time interval'));
 
-        return static function (string $action, string $relativePath) use ($releaseId, $worker, $totalFiles, &$completedFiles, &$lastLoggedAt, $logEveryFiles, $logEverySeconds): void {
+        return static function (string $relativePath) use ($releaseId, $worker, $totalFiles, &$completedFiles, &$lastLoggedAt, $logEveryFiles, $logEverySeconds): void {
             $completedFiles++;
             $now = microtime(true);
 
