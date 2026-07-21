@@ -66,7 +66,7 @@ class FtbProvider implements ProviderInterface
             'https://api.feed-the-beast.com/v1/modpacks/public/modpack/%s/%s/server/%slinux',
             $providerPackId,
             $versionId,
-            $isArm64 ? 'arm64/' : ''
+            $isArm64 ? 'arm/' : ''
         );
 
         $installerContents = $this->get($linuxUrl);
