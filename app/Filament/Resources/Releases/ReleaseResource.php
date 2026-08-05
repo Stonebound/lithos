@@ -235,6 +235,11 @@ class ReleaseResource extends Resource
             throw new \RuntimeException('Upload failed in '.$uploadSummary['failed_workers'].' worker(s). Review release logs for details.');
         }
 
+        if ($uploadSummary['uploaded_files'] === 0) {
+            self::log($release, 'Prepared directory contains no files. Aborting before remote cleanup to avoid deleting remote files.', 'error');
+            throw new \RuntimeException('Prepared directory contains no files. Aborting deployment to avoid deleting remote files.');
+        }
+
         self::log(
             $release,
             'Upload completed with '.$uploadSummary['uploaded_files'].' files across '.$uploadSummary['connections'].' connection(s).',

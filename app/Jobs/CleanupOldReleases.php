@@ -79,7 +79,21 @@ class CleanupOldReleases implements ShouldQueue
             return;
         }
 
-        foreach (self::normalizeStringList($disk->allFiles($base)) as $f) {
+        foreach (self::normalizeStringList($disk->files($base)) as $f) {
+            $path = $disk->path($f);
+            if (! file_exists($path)) {
+                continue;
+            }
+
+            $timestamp = filemtime($path);
+            if ($timestamp === false) {
+                continue;
+            }
+
+            if (Carbon::createFromTimestamp($timestamp)->greaterThanOrEqualTo($cutoff)) {
+                continue;
+            }
+
             $disk->delete($f);
         }
 

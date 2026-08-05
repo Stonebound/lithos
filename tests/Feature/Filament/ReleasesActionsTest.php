@@ -166,7 +166,7 @@ class ReleasesActionsTest extends TestCase
                 return [
                     'failed_workers' => 0,
                     'connections' => 1,
-                    'uploaded_files' => 0,
+                    'uploaded_files' => 2,
                     'workers' => [],
                 ];
             }
