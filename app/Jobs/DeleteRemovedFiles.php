@@ -47,7 +47,7 @@ class DeleteRemovedFiles implements ShouldQueue
 
         $skipPatterns = OverrideRule::getSkipPatternsForServer($server);
 
-        $sftpSvc->deleteRemoved($sftp, $preparedPath, $server->remote_root_path, $include, $skipPatterns, function (string $action, mixed $file) use ($release): void {
+        $sftpSvc->deleteRemoved($sftp, $preparedPath, $server->remote_root_path, $include, $skipPatterns, function (mixed $file) use ($release): void {
             ReleaseResource::log($release, 'Deleted: '.self::normalizeStringValue($file, 'unknown'));
         });
 
