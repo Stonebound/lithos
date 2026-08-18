@@ -397,21 +397,11 @@ class OverrideApplier
     }
 
     /**
-     * @return array<int, string>
+     * @return array<string>
      */
     private function localFiles(string $directory): array
     {
-        $files = Storage::disk('local')->allFiles($directory);
-
-        $normalized = [];
-
-        foreach ($files as $file) {
-            if (is_string($file)) {
-                $normalized[] = $file;
-            }
-        }
-
-        return $normalized;
+        return Storage::disk('local')->allFiles($directory);
     }
 
     /**

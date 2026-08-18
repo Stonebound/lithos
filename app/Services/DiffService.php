@@ -79,10 +79,6 @@ class DiffService
         /** @var array<string, string> $result */
         $result = [];
         foreach ($disk->allFiles($dir) as $path) {
-            if (! is_string($path)) {
-                continue;
-            }
-
             $relative = ltrim(str_replace($dir.'/', '', $path), '/');
             $result[$relative] = $path;
         }

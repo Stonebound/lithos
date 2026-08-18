@@ -42,10 +42,6 @@ class ModpackImporter
         $disk->makeDirectory($targetDir);
 
         foreach ($disk->allFiles($sourceDir) as $sourceFile) {
-            if (! is_string($sourceFile)) {
-                continue;
-            }
-
             $relative = ltrim(str_replace($sourceDir.'/', '', $sourceFile), '/');
             $targetFile = $targetDir.'/'.$relative;
             $targetParent = dirname($targetFile);

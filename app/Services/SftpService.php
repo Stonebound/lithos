@@ -347,10 +347,6 @@ class SftpService
         $relativeFiles = [];
 
         foreach ($disk->allFiles($localRel) as $file) {
-            if (! is_string($file)) {
-                continue;
-            }
-
             $relative = ltrim(str_replace($localRel.'/', '', $file), '/');
 
             if ($this->shouldSkip($relative, $skipPatterns)) {
