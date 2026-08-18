@@ -67,4 +67,30 @@ class DeleteRemovedFilesTest extends TestCase
             'message' => 'Deleted: config/delete.txt',
         ]);
     }
+
+    public function test_handle_aborts_without_connecting_when_prepared_directory_is_empty(): void
+    {
+        Storage::fake('local');
+
+        $server = Server::factory()->create([
+            'remote_root_path' => 'remote/path',
+            'include_paths' => [],
+        ]);
+
+        $release = Release::factory()->create([
+            'server_id' => $server->id,
+            'prepared_path' => 'prepared',
+        ]);
+
+        /** @var SftpService&MockInterface $sftpSvc */
+        $sftpSvc = Mockery::mock(SftpService::class)->makePartial();
+        $sftpSvc->shouldNotReceive('connect');
+        $sftpSvc->shouldNotReceive('deleteRemoved');
+        $this->app->instance(SftpService::class, $sftpSvc);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Prepared directory is empty or missing.');
+
+        (new DeleteRemovedFiles($release->id))->handle();
+    }
 }

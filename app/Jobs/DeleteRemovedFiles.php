@@ -11,6 +11,7 @@ use App\Models\Release;
 use App\Services\SftpService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Storage;
 
 class DeleteRemovedFiles implements ShouldQueue
 {
@@ -31,17 +32,20 @@ class DeleteRemovedFiles implements ShouldQueue
             return;
         }
 
+        $preparedPath = $release->prepared_path;
+
+        if (Storage::disk('local')->allFiles($preparedPath) === []) {
+            ReleaseResource::log($release, 'Prepared directory is empty or missing. Aborting cleanup to avoid deleting remote files.', 'error');
+
+            throw new \RuntimeException('Prepared directory is empty or missing. Aborting cleanup to avoid deleting remote files.');
+        }
+
         ReleaseResource::log($release, 'Starting cleanup of removed files...');
 
         $server = $release->server;
         /** @var SftpService $sftpSvc */
         $sftpSvc = app(SftpService::class);
         $sftp = $sftpSvc->connect($server);
-
-        $preparedPath = $release->prepared_path;
-        if (! is_string($preparedPath) || $preparedPath === '') {
-            return;
-        }
 
         $include = self::normalizeStringList($server->include_paths);
 

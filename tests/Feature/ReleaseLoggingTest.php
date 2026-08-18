@@ -84,6 +84,7 @@ class ReleaseLoggingTest extends TestCase
     public function test_deploy_release_logs_progress(): void
     {
         Storage::fake('local');
+        Storage::disk('local')->put('modpacks/1/prepared/uploaded_file.txt', 'content');
         $server = Server::factory()->create();
         $release = Release::factory()->create([
             'server_id' => $server->id,
@@ -131,6 +132,7 @@ class ReleaseLoggingTest extends TestCase
     public function test_deploy_release_checks_server_status_with_pterodactyl(): void
     {
         Storage::fake('local');
+        Storage::disk('local')->put('modpacks/1/prepared/uploaded_file.txt', 'content');
         $server = Server::factory()->create();
         $release = Release::factory()->create([
             'server_id' => $server->id,
@@ -177,6 +179,7 @@ class ReleaseLoggingTest extends TestCase
     public function test_deploy_release_skips_pterodactyl_when_not_configured(): void
     {
         Storage::fake('local');
+        Storage::disk('local')->put('modpacks/1/prepared/uploaded_file.txt', 'content');
         $server = Server::factory()->create();
         $release = Release::factory()->create([
             'server_id' => $server->id,
