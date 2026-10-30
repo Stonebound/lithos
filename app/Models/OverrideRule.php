@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\OverrideRuleType;
 use Database\Factories\OverrideRuleFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -93,15 +94,15 @@ class OverrideRule extends Model
         $patterns = self::query()
             ->where('type', OverrideRuleType::FileSkip)
             ->where('enabled', true)
-            ->where(function ($q) use ($server) {
-                $q->where(function ($q2) use ($server) {
+            ->where(function (Builder $q) use ($server) {
+                $q->where(function (Builder $q2) use ($server) {
                     $q2->where('scope', 'global')
-                        ->where(function ($q) use ($server) {
+                        ->where(function (Builder $q) use ($server) {
                             $q->whereNull('minecraft_version')
                                 ->orWhere('minecraft_version', ($server->minecraft_version));
                         });
                 })
-                    ->orWhere(function ($q2) use ($server) {
+                    ->orWhere(function (Builder $q2) use ($server) {
                         $q2->where('scope', 'server')
                             ->whereHas('servers', function ($q3) use ($server) {
                                 $q3->where('servers.id', $server->id);

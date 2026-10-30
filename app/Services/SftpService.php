@@ -224,7 +224,7 @@ class SftpService
                 continue;
             }
 
-            if ($depth === 0 && ! empty($includeTopDirs) && ! in_array($name, $includeTopDirs, true)) {
+            if ($depth === 0 && ! in_array($name, $includeTopDirs, true)) {
                 continue;
             }
 

@@ -8,6 +8,7 @@ use App\Concerns\NormalizesStringValues;
 use App\Enums\OverrideRuleType;
 use App\Models\OverrideRule;
 use App\Models\Release;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Yaml\Yaml;
@@ -24,11 +25,11 @@ class OverrideApplier
         $this->copyDirectory($sourceDir, $preparedDir);
 
         $rules = OverrideRule::query()
-            ->where(function ($q) use ($release) {
-                $q->where(function ($q2) {
+            ->where(function (Builder $q) use ($release) {
+                $q->where(function (Builder $q2) {
                     $q2->where('scope', 'global');
                 })
-                    ->orWhere(function ($q2) use ($release) {
+                    ->orWhere(function (Builder $q2) use ($release) {
                         $q2->where('scope', 'server')
                             ->whereHas('servers', function ($q3) use ($release) {
                                 $q3->where('servers.id', $release->server_id);
