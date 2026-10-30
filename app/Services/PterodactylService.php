@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Log;
 
 class PterodactylService
 {
+    /**
+     * Wings SFTP usernames are "{panel username}.{server identifier}".
+     */
+    private const string SFTP_USERNAME_PATTERN = '/^[^.]+\.([a-f0-9-]{8,})$/';
+
     private ?string $baseUrl;
 
     private ?string $apiKey;
@@ -43,8 +48,7 @@ class PterodactylService
             return false;
         }
 
-        // Check if username matches pattern: user.{uuid}
-        return preg_match('/^user\.([a-f0-9-]{8,})/', $server->username, $matches) === 1;
+        return preg_match(self::SFTP_USERNAME_PATTERN, $server->username) === 1;
     }
 
     /**
@@ -56,7 +60,7 @@ class PterodactylService
             return null;
         }
 
-        if (preg_match('/^user\.([a-f0-9-]{8,})/', $server->username, $matches)) {
+        if (preg_match(self::SFTP_USERNAME_PATTERN, $server->username, $matches)) {
             return $matches[1];
         }
 

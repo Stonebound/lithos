@@ -73,4 +73,35 @@ class PterodactylServiceTest extends TestCase
 
         $this->assertEquals('d3aac109', $serverId);
     }
+
+    public function test_extracts_server_id_for_any_panel_username(): void
+    {
+        config(['services.pterodactyl.api_key' => 'test_key', 'services.pterodactyl.base_url' => 'https://test.com']);
+
+        $service = new PterodactylService;
+
+        $this->assertSame('d3aac109', $service->extractServerId(new Server(['username' => 'phit.d3aac109'])));
+        $this->assertSame(
+            'd3aac109-1c2b-4f5e-9a8b-0123456789ab',
+            $service->extractServerId(new Server(['username' => 'phit.d3aac109-1c2b-4f5e-9a8b-0123456789ab'])),
+        );
+    }
+
+    public function test_does_not_treat_plain_or_malformed_usernames_as_pterodactyl(): void
+    {
+        config(['services.pterodactyl.api_key' => 'test_key', 'services.pterodactyl.base_url' => 'https://test.com']);
+
+        $service = new PterodactylService;
+
+        foreach (['root', 'd3aac109', '.d3aac109', 'phit.d3aac', 'phit.notahexid', 'phit.d3aac109.extra', 'first.last.d3aac109'] as $username) {
+            $this->assertFalse($service->isPterodactylServer(new Server(['username' => $username])), $username);
+        }
+    }
+
+    public function test_is_not_a_pterodactyl_server_when_integration_is_unconfigured(): void
+    {
+        config(['services.pterodactyl.api_key' => null, 'services.pterodactyl.base_url' => null]);
+
+        $this->assertFalse((new PterodactylService)->isPterodactylServer(new Server(['username' => 'phit.d3aac109'])));
+    }
 }
