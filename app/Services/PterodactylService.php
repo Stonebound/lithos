@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Server;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
@@ -162,6 +163,140 @@ class PterodactylService
         ]);
 
         return true;
+    }
+
+    /**
+     * List the entries of a directory on the server.
+     *
+     * @return list<array{name: string, is_file: bool, is_symlink: bool}>
+     *
+     * @throws \RuntimeException
+     */
+    public function listFiles(Server $server, string $directory): array
+    {
+        $response = $this->fileRequest()->get($this->serverUrl($server, 'files/list'), [
+            'directory' => $directory,
+        ]);
+        $this->ensureSuccessful($response, "list files in {$directory}");
+
+        $entries = [];
+        foreach ((array) $response->json('data', []) as $item) {
+            $name = data_get($item, 'attributes.name');
+            if (! is_string($name) || $name === '') {
+                continue;
+            }
+
+            $entries[] = [
+                'name' => $name,
+                'is_file' => data_get($item, 'attributes.is_file') === true,
+                'is_symlink' => data_get($item, 'attributes.is_symlink') === true,
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Compress the given paths (relative to $root) into a single tar.gz archive
+     * written to $root on the server, and return the archive's file name.
+     *
+     * @param  list<string>  $files
+     *
+     * @throws \RuntimeException
+     */
+    public function compressFiles(Server $server, string $root, array $files): string
+    {
+        $response = $this->fileRequest()
+            ->timeout(900)
+            ->post($this->serverUrl($server, 'files/compress'), [
+                'root' => $root,
+                'files' => $files,
+            ]);
+        $this->ensureSuccessful($response, 'compress files');
+
+        $name = $response->json('attributes.name');
+        if (! is_string($name) || $name === '' || str_contains($name, '/')) {
+            throw new \RuntimeException('Pterodactyl did not return a valid archive name.');
+        }
+
+        return $name;
+    }
+
+    /**
+     * Get a short-lived signed URL to download a file from the server.
+     *
+     * @throws \RuntimeException
+     */
+    public function getDownloadUrl(Server $server, string $file): string
+    {
+        $response = $this->fileRequest()->get($this->serverUrl($server, 'files/download'), [
+            'file' => $file,
+        ]);
+        $this->ensureSuccessful($response, "get download URL for {$file}");
+
+        $url = $response->json('attributes.url');
+        if (! is_string($url) || $url === '') {
+            throw new \RuntimeException('Pterodactyl did not return a download URL.');
+        }
+
+        return $url;
+    }
+
+    /**
+     * Delete the given files (relative to $root) on the server.
+     *
+     * @param  list<string>  $files
+     *
+     * @throws \RuntimeException
+     */
+    public function deleteFiles(Server $server, string $root, array $files): void
+    {
+        $response = $this->fileRequest()->post($this->serverUrl($server, 'files/delete'), [
+            'root' => $root,
+            'files' => $files,
+        ]);
+        $this->ensureSuccessful($response, 'delete files');
+    }
+
+    private function fileRequest(): PendingRequest
+    {
+        return Http::withHeaders([
+            'Authorization' => 'Bearer '.$this->apiKey,
+            'Accept' => 'Application/vnd.pterodactyl.v1+json',
+            'Content-Type' => 'application/json',
+        ])->timeout(60);
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private function serverUrl(Server $server, string $path): string
+    {
+        $serverId = $this->extractServerId($server);
+        if (! $serverId) {
+            throw new \RuntimeException('Server is not a configured Pterodactyl server.');
+        }
+
+        return "{$this->baseUrl}/api/client/servers/{$serverId}/{$path}";
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private function ensureSuccessful(Response $response, string $action): void
+    {
+        if ($response->successful()) {
+            return;
+        }
+
+        $error = $response->json('errors.0.detail') ?? $response->json('error');
+
+        throw new \RuntimeException(sprintf(
+            'Pterodactyl failed to %s (HTTP %d)%s',
+            $action,
+            $response->status(),
+            is_string($error) && $error !== '' ? ': '.$error : '.',
+        ));
     }
 
     /**

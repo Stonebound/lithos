@@ -16,6 +16,13 @@ use phpseclib3\Net\SFTP;
 
 class SftpService
 {
+    /**
+     * Top-level directories snapshotted when a server has no include paths configured.
+     *
+     * @var list<string>
+     */
+    public const array DEFAULT_SNAPSHOT_TOP_DIRS = ['config', 'mods', 'kubejs', 'defaultconfigs', 'datapacks', 'resourcepacks'];
+
     public function connect(Server $server): SFTP
     {
         return $this->connectFromConfig($this->serverConnectionConfig($server));
@@ -33,7 +40,7 @@ class SftpService
         }
 
         if (empty($includeTopDirs)) {
-            $includeTopDirs = ['config', 'mods', 'kubejs', 'defaultconfigs', 'datapacks', 'resourcepacks'];
+            $includeTopDirs = self::DEFAULT_SNAPSHOT_TOP_DIRS;
         }
 
         $disk = Storage::disk('local');
@@ -265,7 +272,7 @@ class SftpService
     /**
      * @param  array<int, string>  $skipPatterns
      */
-    protected function shouldSkip(string $path, array $skipPatterns): bool
+    public function shouldSkip(string $path, array $skipPatterns): bool
     {
         foreach ($skipPatterns as $pattern) {
             if (fnmatch($pattern, $path)) {

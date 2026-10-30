@@ -23,6 +23,7 @@ use App\Services\ModpackImporter;
 use App\Services\OverrideApplier;
 use App\Services\Providers\ProviderResolver;
 use App\Services\PterodactylService;
+use App\Services\RemoteSnapshotService;
 use App\Services\SftpService;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -127,15 +128,11 @@ class ReleaseResource extends Resource
         // Snapshot remote
         self::log($release, 'Snapshotting remote server...');
         $remoteDir = $baseDir.'/remote';
-        /** @var SftpService $sftpSvc */
-        $sftpSvc = app(SftpService::class);
-
-        $sftp = $sftpSvc->connect($release->server);
-
-        $include = self::normalizeStringList($release->server->include_paths);
-        $skipPatterns = OverrideRule::getSkipPatternsForServer($release->server);
-
-        $sftpSvc->downloadDirectory($sftp, $release->server->remote_root_path, $remoteDir, $include, 0, $skipPatterns);
+        /** @var RemoteSnapshotService $snapshotSvc */
+        $snapshotSvc = app(RemoteSnapshotService::class);
+        $snapshotSvc->snapshot($release->server, $remoteDir, function (string $message, string $level) use ($release): void {
+            self::log($release, $message, $level);
+        });
         self::log($release, "Remote snapshot completed to: {$remoteDir}");
 
         // Apply overrides
