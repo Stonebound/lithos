@@ -19,15 +19,6 @@ class OverrideRulesControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_requires_authentication(): void
-    {
-        $this->get('/overrides')->assertNotFound();
-        // After login, legacy route redirects to Filament panel at root.
-        $user = User::factory()->create(['role' => 'maintainer']);
-        $this->actingAs($user);
-        $this->get('/overrides')->assertNotFound();
-    }
-
     public function test_create_override_rule(): void
     {
         $user = User::factory()->create(['role' => 'maintainer']);

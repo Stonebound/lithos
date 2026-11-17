@@ -12,7 +12,7 @@ class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registration_screen_is_not_available_and_redirects_to_filament_login(): void
+    public function test_self_registration_is_not_available(): void
     {
         $response = $this->get('/register');
 

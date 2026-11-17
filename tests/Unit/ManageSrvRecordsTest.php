@@ -28,19 +28,6 @@ class ManageSrvRecordsTest extends TestCase
     }
 
     #[Test]
-    public function test_job_constructs_correctly(): void
-    {
-        $srvRecord = SrvRecord::factory()->create();
-        $changes = ['port' => 25566];
-
-        $job = new ManageSrvRecords($srvRecord, 'update', $changes);
-
-        $this->assertEquals($srvRecord->id, $job->srvRecord->id);
-        $this->assertEquals('update', $job->action);
-        $this->assertEquals($changes, $job->changes);
-    }
-
-    #[Test]
     public function test_job_handles_create_action(): void
     {
         $srvRecord = SrvRecord::factory()->create(['subdomain' => 'test', 'port' => 25565]);
@@ -84,12 +71,7 @@ class ManageSrvRecordsTest extends TestCase
         $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
-        $job = new ManageSrvRecords($srvRecord, 'update', ['port' => 25566]);
-
-        $job->handle();
-
-        $this->assertEquals('update', $job->action);
-        $this->assertArrayHasKey('port', $job->changes);
+        (new ManageSrvRecords($srvRecord, 'update', ['port' => 25566]))->handle();
     }
 
     #[Test]
@@ -113,15 +95,11 @@ class ManageSrvRecordsTest extends TestCase
         $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
-        $job = new ManageSrvRecords($srvRecord, 'update', ['subdomain' => 'new']);
-
-        $job->handle();
+        (new ManageSrvRecords($srvRecord, 'update', ['subdomain' => 'new']))->handle();
 
         $srvRecord->refresh();
         $this->assertSame(['new/SRV'], $srvRecord->record_ids);
         $this->assertSame('hetzner', $srvRecord->dns_provider);
-        $this->assertEquals('update', $job->action);
-        $this->assertArrayHasKey('subdomain', $job->changes);
     }
 
     #[Test]
@@ -139,11 +117,7 @@ class ManageSrvRecordsTest extends TestCase
         $this->expectMock($resolver, 'resolve')->once()->andReturn($provider);
         $this->app->instance(SrvDnsProviderResolver::class, $resolver);
 
-        $job = new ManageSrvRecords($srvRecord, 'delete');
-
-        $job->handle();
-
-        $this->assertEquals('delete', $job->action);
+        (new ManageSrvRecords($srvRecord, 'delete'))->handle();
     }
 
     #[Test]

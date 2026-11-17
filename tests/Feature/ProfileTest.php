@@ -68,16 +68,4 @@ class ProfileTest extends TestCase
 
         $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
     }
-
-    public function test_user_can_delete_their_account(): void
-    {
-        $user = User::factory()->create([
-            'role' => UserRole::Admin,
-        ]);
-
-        $this->actingAs($user);
-
-        // Filament's default profile page does not support account deletion.
-        $this->markTestSkipped('Filament default profile does not support account deletion.');
-    }
 }

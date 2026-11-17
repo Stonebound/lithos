@@ -8,7 +8,6 @@ use App\Models\User;
 use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -68,16 +67,5 @@ class AuthenticationTest extends TestCase
 
         $response
             ->assertOk();
-    }
-
-    public function test_users_can_logout(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user);
-
-        Auth::logout();
-
-        $this->assertGuest();
     }
 }

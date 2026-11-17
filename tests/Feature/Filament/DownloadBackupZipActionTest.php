@@ -52,6 +52,7 @@ class DownloadBackupZipActionTest extends TestCase
     #[Test]
     public function action_provides_download_when_zip_exists(): void
     {
+        Bus::fake();
         Storage::fake('local');
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
@@ -66,6 +67,9 @@ class DownloadBackupZipActionTest extends TestCase
         Livewire::test(EditRelease::class, ['record' => $release->id])
             ->assertActionVisible('download-backup-zip')
             ->callAction('download-backup-zip')
-            ->assertHasNoActionErrors();
+            ->assertHasNoActionErrors()
+            ->assertNotified('Backup zip ready');
+
+        Bus::assertNotDispatched(PrepareBackupZip::class);
     }
 }

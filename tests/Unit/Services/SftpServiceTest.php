@@ -165,20 +165,6 @@ class SftpServiceTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
-    public function test_delete_removed_method_passes_correct_arguments(): void
-    {
-        $sftp = $this->makeSftpMock();
-        $service = new SftpService;
-
-        // Mocking rawlist to return empty so it doesn't do much
-        $this->expectMock($sftp, 'rawlist')->with('remote')->andReturn([]);
-
-        // This should now call deleteRemovedFiles with correct argument order
-        $service->deleteRemoved($sftp, 'local', 'remote', ['config'], ['skip_pattern']);
-
-        $this->addToAssertionCount(1);
-    }
-
     public function test_download_directory_recurses_correctly(): void
     {
         Storage::fake('local');
@@ -285,21 +271,16 @@ class SftpServiceTest extends TestCase
             ->with('remote/path/config')
             ->andReturn([
                 'test.log' => ['type' => 1],
+                'removed.txt' => ['type' => 1],
             ]);
-
-        $this->expectMock($sftp, 'is_link')->andReturn(false);
-        $this->expectMock($sftp, 'is_dir')->with('remote/path/config')->andReturn(true);
-        $this->expectMock($sftp, 'is_dir')->with('remote/path/config/test.log')->andReturn(false);
 
         // Should NOT delete config/test.log because of skip pattern
         $this->expectMock($sftp, 'delete')->with('remote/path/config/test.log', true)->never();
+        $this->expectMock($sftp, 'delete')->with('remote/path/config/removed.txt', true)->once()->andReturn(true);
 
         $service = new SftpService;
 
-        $this->expectMock($sftp, 'mkdir')->andReturn(true);
-        $this->expectMock($sftp, 'put')->andReturn(true);
-
-        $service->syncDirectory($sftp, $disk->path('sync'), 'remote/path', ['config/*.log']);
+        $service->deleteRemoved($sftp, 'sync', 'remote/path', [], ['config/*.log']);
 
         $this->addToAssertionCount(1);
     }

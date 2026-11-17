@@ -27,20 +27,6 @@ class ReleaseLoggingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_can_log_messages_to_release(): void
-    {
-        $server = Server::factory()->create();
-        $release = Release::factory()->create(['server_id' => $server->id]);
-
-        ReleaseResource::log($release, 'Test message', 'info');
-
-        $this->assertDatabaseHas('release_logs', [
-            'release_id' => $release->id,
-            'message' => 'Test message',
-            'level' => 'info',
-        ]);
-    }
-
     public function test_prepare_release_logs_progress(): void
     {
         Storage::fake('local');

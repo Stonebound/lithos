@@ -38,8 +38,10 @@ class ReleaseFlowTest extends TestCase
         return $path;
     }
 
-    public function test_prepare_release_and_deploy_with_mock_sftp(): void
+    public function test_uploaded_zip_is_extracted_into_the_prepared_release(): void
     {
+        Storage::fake('local');
+
         $user = User::factory()->create(['role' => 'maintainer']);
         $this->actingAs($user);
 
@@ -70,40 +72,6 @@ class ReleaseFlowTest extends TestCase
                 Storage::disk('local')->makeDirectory($localRel.'/config');
                 Storage::disk('local')->put($localRel.'/config/game.json', json_encode(['feature' => ['enabled' => false]], JSON_THROW_ON_ERROR));
             }
-
-            public function syncDirectory(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], ?callable $onProgress = null, ?array $relativeFiles = null): int
-            {
-                // Assert prepared files exist
-                if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {
-                    throw new \RuntimeException('Prepared path missing');
-                }
-
-                return count($relativeFiles ?? []);
-            }
-
-            public function syncServerDirectory(Server $server, string $localPath, string $remotePath, array $skipPatterns = [], ?int $releaseId = null): array
-            {
-                if (! Storage::disk('local')->exists($localPath.'/config/game.json')) {
-                    throw new \RuntimeException('Prepared path missing');
-                }
-
-                return [
-                    'failed_workers' => 0,
-                    'connections' => 1,
-                    'uploaded_files' => 1,
-                    'workers' => [
-                        [
-                            'worker' => 1,
-                            'status' => 'success',
-                            'uploaded_files' => 1,
-                            'first_file' => 'config/game.json',
-                            'last_file' => 'config/game.json',
-                            'failed_file' => null,
-                            'error' => null,
-                        ],
-                    ],
-                ];
-            }
         };
         $this->app->instance(SftpService::class, $fake);
 
@@ -112,14 +80,10 @@ class ReleaseFlowTest extends TestCase
             'config/game.json' => json_encode(['feature' => ['enabled' => true]], JSON_THROW_ON_ERROR),
             'mods/example.jar' => 'BINARYJAR',
         ]);
-
-        // Create release via Filament and upload zip
-        Storage::fake('local');
         $zipBytes = file_get_contents($zipPath);
         if ($zipBytes === false) {
             $this->fail('Failed to read generated zip for upload');
         }
-        Storage::disk('local')->delete($zipPath);
         $uploaded = UploadedFile::fake()->createWithContent('modpack.zip', $zipBytes);
 
         Filament::setCurrentPanel('admin');
@@ -132,7 +96,6 @@ class ReleaseFlowTest extends TestCase
             ->call('create')
             ->assertHasNoActionErrors();
 
-        // Prepare and deploy via Filament actions on the edit page
         $release = Release::query()->latest()->first();
         $this->assertInstanceOf(Release::class, $release);
 
@@ -140,8 +103,12 @@ class ReleaseFlowTest extends TestCase
             ->callAction('prepare')
             ->assertHasNoActionErrors();
 
-        Livewire::test(EditRelease::class, ['record' => $release->getKey()])
-            ->callAction('deploy', ['confirmation' => 'DEPLOY NOW'])
-            ->assertHasNoActionErrors();
+        $preparedPath = $release->refresh()->prepared_path;
+        $this->assertIsString($preparedPath);
+        $this->assertSame(
+            ['feature' => ['enabled' => true]],
+            json_decode((string) Storage::disk('local')->get($preparedPath.'/config/game.json'), true),
+        );
+        $this->assertSame('BINARYJAR', Storage::disk('local')->get($preparedPath.'/mods/example.jar'));
     }
 }

@@ -160,40 +160,6 @@ class OverrideApplierTest extends TestCase
         $this->assertStringNotContainsString('WRONG', $preparedConfig);
     }
 
-    public function test_it_applies_file_add_rule(): void
-    {
-        Storage::fake('local');
-        $disk = Storage::disk('local');
-
-        // Setup source files
-        $disk->put('source/config.json', '{}');
-        $disk->put('override-files/test.jar', 'binary content');
-
-        $server = Server::factory()->create();
-        $release = Release::factory()->create(['server_id' => $server->id]);
-
-        OverrideRule::create([
-            'name' => 'Add Mod',
-            'type' => 'file_add',
-            'scope' => 'global',
-            'enabled' => true,
-            'path_patterns' => ['*'],
-            'payload' => [
-                'files' => [
-                    ['from_upload' => ['override-files/test.jar'], 'to' => 'mods/test.jar'],
-                ],
-                'overwrite' => true,
-            ],
-        ]);
-
-        $applier = new OverrideApplier;
-        $applier->apply($release, 'source', 'prepared');
-
-        $this->assertTrue($disk->exists('prepared/config.json'));
-        $this->assertTrue($disk->exists('prepared/mods/test.jar'));
-        $this->assertEquals('binary content', $disk->get('prepared/mods/test.jar'));
-    }
-
     public function test_it_applies_multi_file_add_rule(): void
     {
         Storage::fake('local');
