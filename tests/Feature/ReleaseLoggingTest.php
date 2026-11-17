@@ -20,7 +20,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Mockery;
 use Mockery\MockInterface;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use Tests\TestCase;
 
 class ReleaseLoggingTest extends TestCase

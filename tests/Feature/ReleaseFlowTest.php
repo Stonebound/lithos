@@ -15,7 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use Tests\TestCase;
 
 class ReleaseFlowTest extends TestCase

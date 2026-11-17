@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Mockery\MockInterface;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use Tests\TestCase;
 
 class SftpServiceTest extends TestCase
@@ -67,12 +67,12 @@ class SftpServiceTest extends TestCase
         $this->expectMock($sftp, 'is_dir')->with('remote/path/config/keep.txt')->andReturn(false);
         $this->expectMock($sftp, 'is_dir')->with('remote/path/config/delete.txt')->andReturn(false);
 
-        $this->expectMock($sftp, 'delete')->with('remote/path/config/delete.txt', true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'delete')->with('remote/path/config/delete.txt', true)->once();
 
         $service = new SftpService;
 
-        $this->expectMock($sftp, 'mkdir')->andReturn(true);
-        $this->expectMock($sftp, 'put')->andReturn(true);
+        $this->expectMock($sftp, 'mkdir');
+        $this->expectMock($sftp, 'put');
 
         $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
@@ -99,12 +99,12 @@ class SftpServiceTest extends TestCase
         $this->expectMock($sftp, 'is_dir')->with('remote/path/config')->andReturn(true);
 
         // Should delete the directory recursively because it's in default list but not local
-        $this->expectMock($sftp, 'delete')->with('remote/path/config', true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'delete')->with('remote/path/config', true)->once();
 
         $service = new SftpService;
 
-        $this->expectMock($sftp, 'mkdir')->andReturn(true);
-        $this->expectMock($sftp, 'put')->andReturn(true);
+        $this->expectMock($sftp, 'mkdir');
+        $this->expectMock($sftp, 'put');
 
         $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
@@ -151,14 +151,14 @@ class SftpServiceTest extends TestCase
         $this->expectMock($sftp, 'is_dir')->with('remote/path/config/existing_dir/delete_me.txt')->andReturn(false);
 
         // Should delete delete_me.txt
-        $this->expectMock($sftp, 'delete')->with('remote/path/config/existing_dir/delete_me.txt', true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'delete')->with('remote/path/config/existing_dir/delete_me.txt', true)->once();
         // Should NOT delete keep.txt
         $this->expectMock($sftp, 'delete')->with('remote/path/config/existing_dir/keep.txt', true)->never();
 
         $service = new SftpService;
 
-        $this->expectMock($sftp, 'mkdir')->andReturn(true);
-        $this->expectMock($sftp, 'put')->andReturn(true);
+        $this->expectMock($sftp, 'mkdir');
+        $this->expectMock($sftp, 'put');
 
         $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
@@ -194,10 +194,10 @@ class SftpServiceTest extends TestCase
 
         $this->expectMock($sftp, 'get')
             ->with('remote/path/config/test.txt', Mockery::type('string'))
-            ->andReturnUsing(function (string $remote, string $local): bool {
+            ->andReturnUsing(function (string $remote, string $local): ?string {
                 file_put_contents($local, 'content');
 
-                return true;
+                return null;
             });
 
         $service = new SftpService;
@@ -236,10 +236,10 @@ class SftpServiceTest extends TestCase
 
         $this->expectMock($sftp, 'get')
             ->with('remote/path/mods/test.jar', Mockery::type('string'))
-            ->andReturnUsing(function (string $remote, string $local): bool {
+            ->andReturnUsing(function (string $remote, string $local): ?string {
                 file_put_contents($local, 'jar content');
 
-                return true;
+                return null;
             });
 
         $service = new SftpService;
@@ -276,7 +276,7 @@ class SftpServiceTest extends TestCase
 
         // Should NOT delete config/test.log because of skip pattern
         $this->expectMock($sftp, 'delete')->with('remote/path/config/test.log', true)->never();
-        $this->expectMock($sftp, 'delete')->with('remote/path/config/removed.txt', true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'delete')->with('remote/path/config/removed.txt', true)->once();
 
         $service = new SftpService;
 
@@ -314,7 +314,7 @@ class SftpServiceTest extends TestCase
         // 'mods' IS in default list for delete, so it should be processed
         $this->expectMock($sftp, 'is_dir')->with('remote/path/mods')->andReturn(true);
         // It doesn't exist locally, so it should be deleted
-        $this->expectMock($sftp, 'delete')->with('remote/path/mods', true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'delete')->with('remote/path/mods', true)->once();
 
         // 'other' is NOT in default list, so it should be skipped
         $this->expectMock($sftp, 'delete')->with('remote/path/other', true)->never();
@@ -322,8 +322,8 @@ class SftpServiceTest extends TestCase
         $service = new SftpService;
 
         // syncDirectory calls deleteRemovedFiles without includeTopDirs
-        $this->expectMock($sftp, 'mkdir')->andReturn(true);
-        $this->expectMock($sftp, 'put')->andReturn(true);
+        $this->expectMock($sftp, 'mkdir');
+        $this->expectMock($sftp, 'put');
 
         $service->deleteRemoved($sftp, 'sync', 'remote/path');
 
@@ -342,7 +342,7 @@ class SftpServiceTest extends TestCase
                 123 => ['type' => 1], // Numeric filename "123"
             ]);
 
-        $this->expectMock($sftp, 'get')->andReturn(true);
+        $this->expectMock($sftp, 'get')->andReturn(null);
 
         $service = new SftpService;
 
@@ -363,11 +363,11 @@ class SftpServiceTest extends TestCase
 
         $sftp = $this->makeSftpMock();
         $this->expectMock($sftp, 'is_dir')->with('remote/path/config')->once()->andReturn(false);
-        $this->expectMock($sftp, 'mkdir')->with('remote/path/config', -1, true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'mkdir')->with('remote/path/config', -1, true)->once();
         $this->expectMock($sftp, 'is_dir')->with('remote/path/mods')->once()->andReturn(true);
 
-        $this->expectMock($sftp, 'put')->with('remote/path/config/keep.txt', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->once()->andReturn(true);
-        $this->expectMock($sftp, 'put')->with('remote/path/mods/mod.jar', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->once()->andReturn(true);
+        $this->expectMock($sftp, 'put')->with('remote/path/config/keep.txt', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->once();
+        $this->expectMock($sftp, 'put')->with('remote/path/mods/mod.jar', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->once();
         $this->expectMock($sftp, 'put')->with('remote/path/config/skip.txt', Mockery::type('string'), SFTP::SOURCE_LOCAL_FILE)->never();
 
         $service = new SftpService;

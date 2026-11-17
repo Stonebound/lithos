@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Mockery\MockInterface;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use Tests\TestCase;
 
 class RemoteSnapshotServiceTest extends TestCase
@@ -273,8 +273,10 @@ class RemoteSnapshotServiceTest extends TestCase
             return $entries;
         });
 
-        $this->expectMock($sftp, 'get')->andReturnUsing(function (string $remote, string $local): bool {
-            return copy($this->remoteRoot.'/'.ltrim($remote, '/'), $local);
+        $this->expectMock($sftp, 'get')->andReturnUsing(function (string $remote, string $local): ?string {
+            copy($this->remoteRoot.'/'.ltrim($remote, '/'), $local);
+
+            return null;
         });
 
         return $sftp;

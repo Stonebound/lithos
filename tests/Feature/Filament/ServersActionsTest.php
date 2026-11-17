@@ -12,7 +12,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 

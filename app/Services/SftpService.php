@@ -11,8 +11,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Exception\FileSystemException;
+use phpseclib4\Net\SFTP;
 
 class SftpService
 {
@@ -34,9 +35,10 @@ class SftpService
      */
     public function downloadDirectory(SFTP $sftp, string $remotePath, string $localPath, array $includeTopDirs = [], int $depth = 0, array $skipPatterns = [], string $accumulatedPath = ''): void
     {
-        $items = $sftp->rawlist($remotePath);
-        if (! is_array($items)) {
-            throw new \RuntimeException('Failed to list remote path: '.$remotePath);
+        try {
+            $items = $sftp->rawlist($remotePath);
+        } catch (FileSystemException $exception) {
+            throw new \RuntimeException('Failed to list remote path: '.$remotePath, previous: $exception);
         }
 
         if (empty($includeTopDirs)) {
@@ -80,8 +82,10 @@ class SftpService
                 }
 
                 $fullLocalFile = $diskRoot.'/'.ltrim($localFile, '/');
-                if (! $sftp->get($remoteItem, $fullLocalFile)) {
-                    throw new \RuntimeException('Failed to download file: '.$remoteItem);
+                try {
+                    $sftp->get($remoteItem, $fullLocalFile);
+                } catch (FileSystemException $exception) {
+                    throw new \RuntimeException('Failed to download file: '.$remoteItem, previous: $exception);
                 }
             }
         }
@@ -185,20 +189,24 @@ class SftpService
             $remoteDir = dirname($remoteFile);
 
             if (! isset($knownDirs[$remoteDir])) {
-                $directoryExists = $sftp->is_dir($remoteDir);
-
-                if ($directoryExists === false) {
-                    $created = $sftp->mkdir($remoteDir, -1, true);
-
-                    if ($created === false && $sftp->is_dir($remoteDir) === false) {
-                        throw new \RuntimeException('Failed to create remote directory: '.$remoteDir);
+                if (! $sftp->is_dir($remoteDir)) {
+                    try {
+                        $sftp->mkdir($remoteDir, -1, true);
+                    } catch (FileSystemException $exception) {
+                        // A parallel worker may have created it in the meantime, so re-check without the stat cache.
+                        $sftp->clearStatCache();
+                        if (! $sftp->is_dir($remoteDir)) {
+                            throw new \RuntimeException('Failed to create remote directory: '.$remoteDir, previous: $exception);
+                        }
                     }
                 }
                 $knownDirs[$remoteDir] = true;
             }
 
-            if (! $sftp->put($remoteFile, $disk->path($file), SFTP::SOURCE_LOCAL_FILE)) {
-                throw new \RuntimeException('Failed to upload: '.$remoteFile);
+            try {
+                $sftp->put($remoteFile, $disk->path($file), SFTP::SOURCE_LOCAL_FILE);
+            } catch (FileSystemException $exception) {
+                throw new \RuntimeException('Failed to upload: '.$remoteFile, previous: $exception);
             }
 
             if ($onProgress) {
@@ -216,8 +224,9 @@ class SftpService
     protected function deleteRemovedFiles(SFTP $sftp, string $localPath, string $remotePath, array $skipPatterns = [], array $includeTopDirs = [], int $depth = 0, string $accumulatedPath = '', ?callable $onProgress = null): void
     {
         $disk = Storage::disk('local');
-        $remoteList = $sftp->rawlist($remotePath);
-        if (! is_array($remoteList)) {
+        try {
+            $remoteList = $sftp->rawlist($remotePath);
+        } catch (FileSystemException) {
             return;
         }
 

@@ -11,7 +11,7 @@ use App\Models\Server;
 use App\Services\SftpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use Tests\TestCase;
 
 class OverrideRulesFileOpsTest extends TestCase

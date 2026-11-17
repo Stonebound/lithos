@@ -17,7 +17,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -170,6 +170,8 @@ class ReleasesActionsTest extends TestCase
                     'workers' => [],
                 ];
             }
+
+            public function deleteRemoved(SFTP $sftp, string $localPath, string $remotePath, array $includeTopDirs = [], array $skipPatterns = [], ?callable $onProgress = null): void {}
         };
         $this->app->instance(SftpService::class, $fakeSftp);
 

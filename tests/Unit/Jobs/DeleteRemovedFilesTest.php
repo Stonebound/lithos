@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
 use Mockery\MockInterface;
-use phpseclib3\Net\SFTP;
+use phpseclib4\Net\SFTP;
 use Tests\TestCase;
 
 class DeleteRemovedFilesTest extends TestCase
@@ -53,7 +53,7 @@ class DeleteRemovedFilesTest extends TestCase
                 'delete.txt' => ['type' => 1],
             ]);
         $this->expectMock($sftp, 'is_dir')->with('remote/path/config')->andReturn(true);
-        $this->expectMock($sftp, 'delete')->with('remote/path/config/delete.txt', true)->once()->andReturn(true);
+        $this->expectMock($sftp, 'delete')->with('remote/path/config/delete.txt', true)->once();
 
         /** @var SftpService&MockInterface $sftpSvc */
         $sftpSvc = Mockery::mock(SftpService::class)->makePartial();
