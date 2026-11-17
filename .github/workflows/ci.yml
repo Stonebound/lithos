@@ -17,6 +17,8 @@ jobs:
           php-version: '8.4'
           extensions: mbstring, pdo_sqlite, zip
           coverage: none
+      - name: Install OpenSSH server for SFTP integration tests
+        run: sudo apt-get update && sudo apt-get install -y openssh-server
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
       - name: Copy .env.example
