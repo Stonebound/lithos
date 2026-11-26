@@ -5,7 +5,7 @@
 
 /**
  * A helper file for Laravel, to provide autocomplete information to your IDE
- * Generated for Laravel 13.43.0.
+ * Generated for Laravel 13.44.1.
  *
  * This file should not be included in your code, only analyzed by your IDE!
  *
@@ -7881,6 +7881,21 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
+         * Register a callback to be invoked when a transaction runs for longer than a given amount of time.
+         *
+         * @param \DateTimeInterface|\Carbon\CarbonInterval|float|int $threshold
+         * @param (callable(\Illuminate\Database\Connection, \Illuminate\Database\Events\TransactionCommitted|\Illuminate\Database\Events\TransactionRolledBack, float): mixed) $handler
+         * @return void
+         * @static
+         */
+        public static function whenTransactionRunsLongerThan($threshold, $handler)
+        {
+            //Method inherited from \Illuminate\Database\Connection 
+            /** @var \Illuminate\Database\SQLiteConnection $instance */
+            $instance->whenTransactionRunsLongerThan($threshold, $handler);
+        }
+
+        /**
          * Reconnect to the database if a PDO connection is missing.
          *
          * @return void
@@ -12781,6 +12796,40 @@ namespace Illuminate\Support\Facades {
             //Method inherited from \Illuminate\Support\Manager 
             /** @var \Illuminate\Notifications\ChannelManager $instance */
             return $instance->forgetDrivers();
+        }
+
+        /**
+         * Apply the callback if the given "value" is (or resolves to) truthy.
+         *
+         * @template TWhenParameter
+         * @template TWhenReturnType
+         * @param (\Closure($this): TWhenParameter)|TWhenParameter|null $value
+         * @param (callable($this, TWhenParameter): TWhenReturnType)|null $callback
+         * @param (callable($this, TWhenParameter): TWhenReturnType)|null $default
+         * @return $this|TWhenReturnType
+         * @static
+         */
+        public static function when($value = null, $callback = null, $default = null)
+        {
+            /** @var \Illuminate\Notifications\ChannelManager $instance */
+            return $instance->when($value, $callback, $default);
+        }
+
+        /**
+         * Apply the callback if the given "value" is (or resolves to) falsy.
+         *
+         * @template TUnlessParameter
+         * @template TUnlessReturnType
+         * @param (\Closure($this): TUnlessParameter)|TUnlessParameter|null $value
+         * @param (callable($this, TUnlessParameter): TUnlessReturnType)|null $callback
+         * @param (callable($this, TUnlessParameter): TUnlessReturnType)|null $default
+         * @return $this|TUnlessReturnType
+         * @static
+         */
+        public static function unless($value = null, $callback = null, $default = null)
+        {
+            /** @var \Illuminate\Notifications\ChannelManager $instance */
+            return $instance->unless($value, $callback, $default);
         }
 
         /**
@@ -22146,14 +22195,15 @@ namespace Illuminate\Support\Facades {
          * @param \UnitEnum|string|\Illuminate\Contracts\Filesystem\Filesystem $disk
          * @param string $from
          * @param string|null $to
+         * @param mixed $options
          * @return bool
          * @static
          */
-        public static function copyToDisk($disk, $from, $to = null)
+        public static function copyToDisk($disk, $from, $to = null, $options = [])
         {
             //Method inherited from \Illuminate\Filesystem\FilesystemAdapter 
             /** @var \Illuminate\Filesystem\LocalFilesystemAdapter $instance */
-            return $instance->copyToDisk($disk, $from, $to);
+            return $instance->copyToDisk($disk, $from, $to, $options);
         }
 
         /**
@@ -22162,14 +22212,15 @@ namespace Illuminate\Support\Facades {
          * @param \UnitEnum|string|\Illuminate\Contracts\Filesystem\Filesystem $disk
          * @param string $from
          * @param string|null $to
+         * @param mixed $options
          * @return bool
          * @static
          */
-        public static function moveToDisk($disk, $from, $to = null)
+        public static function moveToDisk($disk, $from, $to = null, $options = [])
         {
             //Method inherited from \Illuminate\Filesystem\FilesystemAdapter 
             /** @var \Illuminate\Filesystem\LocalFilesystemAdapter $instance */
-            return $instance->moveToDisk($disk, $from, $to);
+            return $instance->moveToDisk($disk, $from, $to, $options);
         }
 
         /**
@@ -24942,12 +24993,13 @@ namespace Laravel\Mcp\Facades {
         /**
          * @param \Closure(string, TokenSet):  mixed|array{0: class-string, 1: string}  $handler
          * @param array<int, string>|string $middleware
+         * @param array<string, mixed> $clientMetadata
          * @static
          */
-        public static function oAuthRoutesFor($client, $handler, $middleware = 'web', $connectUri = null, $callbackUri = null)
+        public static function oAuthRoutesFor($client, $handler, $middleware = 'web', $connectUri = null, $callbackUri = null, $clientMetadataUri = null, $clientMetadata = [])
         {
             /** @var \Laravel\Mcp\Server\Registrar $instance */
-            return $instance->oAuthRoutesFor($client, $handler, $middleware, $connectUri, $callbackUri);
+            return $instance->oAuthRoutesFor($client, $handler, $middleware, $connectUri, $callbackUri, $clientMetadataUri, $clientMetadata);
         }
 
         /**
@@ -24981,10 +25033,10 @@ namespace Laravel\Mcp\Facades {
         /**
          * @static
          */
-        public static function oauthRoutes($oauthPrefix = 'oauth')
+        public static function oauthRoutes($oauthPrefix = 'oauth', $registration = true)
         {
             /** @var \Laravel\Mcp\Server\Registrar $instance */
-            return $instance->oauthRoutes($oauthPrefix);
+            return $instance->oauthRoutes($oauthPrefix, $registration);
         }
 
         /**
@@ -27625,7 +27677,7 @@ namespace Livewire\Features\SupportTesting {
         }
 
         /**
-         * @see \Filament\Tables\Testing\TestsActions::assertTableActionsExistInOrder()
+         * @see \Filament\Tables\Testing\TestsActions::assertTableRecordActionsExistInOrder()
          * @param array $names
          * @return static
          * @static
@@ -27633,6 +27685,17 @@ namespace Livewire\Features\SupportTesting {
         public static function assertTableActionsExistInOrder($names)
         {
             return \Livewire\Features\SupportTesting\Testable::assertTableActionsExistInOrder($names);
+        }
+
+        /**
+         * @see \Filament\Tables\Testing\TestsActions::assertTableRecordActionsExistInOrder()
+         * @param array $names
+         * @return static
+         * @static
+         */
+        public static function assertTableRecordActionsExistInOrder($names)
+        {
+            return \Livewire\Features\SupportTesting\Testable::assertTableRecordActionsExistInOrder($names);
         }
 
         /**
@@ -28313,6 +28376,30 @@ namespace Livewire\Features\SupportTesting {
         public static function assertTableColumnStateNotSet($name, $state, $record)
         {
             return \Livewire\Features\SupportTesting\Testable::assertTableColumnStateNotSet($name, $state, $record);
+        }
+
+        /**
+         * @see \Filament\Tables\Testing\TestsColumns::assertTableColumnEnabled()
+         * @param string $name
+         * @param mixed $record
+         * @return static
+         * @static
+         */
+        public static function assertTableColumnEnabled($name, $record)
+        {
+            return \Livewire\Features\SupportTesting\Testable::assertTableColumnEnabled($name, $record);
+        }
+
+        /**
+         * @see \Filament\Tables\Testing\TestsColumns::assertTableColumnDisabled()
+         * @param string $name
+         * @param mixed $record
+         * @return static
+         * @static
+         */
+        public static function assertTableColumnDisabled($name, $record)
+        {
+            return \Livewire\Features\SupportTesting\Testable::assertTableColumnDisabled($name, $record);
         }
 
         /**
@@ -33322,6 +33409,18 @@ namespace  {
         {
             /** @var \Illuminate\Database\Query\Builder $instance */
             return $instance->lockForUpdate();
+        }
+
+        /**
+         * Lock the selected rows in the table for updating without blocking foreign key checks.
+         *
+         * @return \Illuminate\Database\Eloquent\Builder<static>
+         * @static
+         */
+        public static function lockForNoKeyUpdate()
+        {
+            /** @var \Illuminate\Database\Query\Builder $instance */
+            return $instance->lockForNoKeyUpdate();
         }
 
         /**
